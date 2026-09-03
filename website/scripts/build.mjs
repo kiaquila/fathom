@@ -11,6 +11,10 @@ const SERVED = ["index.html"];
 
 const CHARACTER_REFERENCE = /&(?:#x?[0-9a-f]+|[a-z][a-z0-9]*);/gi;
 const DATA_URI = /data:[^"'\s)]+/gi;
+/* The one thing allowed to point outward is an anchor's href (the footer
+   credit). Exactly that attribute is blanked before the scan, so an anchor's
+   other attributes — an inline background, a `ping` — stay visible to it. */
+const ANCHOR_HREF = /(<a\b[^>]*?\bhref\s*=\s*)(["'])[^"']*\2/gi;
 const OFF_ORIGIN = /(?:\b(?:https?|ftp|wss?):[^\s"'()<>]+)|(?:(?:[a-z][a-z0-9+.-]*:)?\/\/[^\s"'()<>]+)/gi;
 const LOCAL_REFERENCE =
   /(?:\b(?:src|poster)\s*=\s*["']([^"']+)["']|<link\b[^>]*\bhref\s*=\s*["']([^"']+)["']|\burl\(\s*["']?([^"')]+)["']?\s*\))/gi;
@@ -29,7 +33,9 @@ function decodeCharacterReferences(markup) {
 }
 
 export function findOffOrigin(markup) {
-  const scannable = decodeCharacterReferences(markup).replace(DATA_URI, "data:inline");
+  const scannable = decodeCharacterReferences(markup)
+    .replace(DATA_URI, "data:inline")
+    .replace(ANCHOR_HREF, "$1$2local$2");
   const references = [...scannable.matchAll(OFF_ORIGIN)].map((match) => match[0]);
   if (/@import/i.test(scannable)) references.push("@import");
   return references;

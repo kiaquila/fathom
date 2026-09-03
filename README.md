@@ -8,10 +8,39 @@ artwork itself is intentionally not defined yet.
 
 - Client decision (Kristina, 2026-09-03): create a public repository named
   `fathom` for a new art project in the same broad technical class as Ember.
-- The development harness and static-site architecture are prepared.
-- No final visual concept, motion language, sound, copy, canonical domain, or
-  deployment has been approved.
-- No Ember artwork, copy, imagery, sound, or generated assets are included.
+- Client decision (Kristina, 2026-09-03): the artwork is the "Reference"
+  scene from the fourth prototype round — a school of sequined goldfish with
+  pointed snouts and veil fins, drifting right through painted water; the
+  scene follows the visitor's local time of day; the page carries Ember's lab
+  chrome (wordmark, footer credit) and the study number **03** at the top
+  right.
+- Implemented in `website/src/index.html`. Not yet approved: canonical
+  domain, deployment, social card, PNG icons.
+
+## The artwork
+
+- **Fish.** Sixty-eight fantail goldfish in three depth planes (far fish are
+  blurred and fogged, near fish sharp). Each fish is drawn procedurally at
+  load: an egg-shaped body with a pointed snout, a darker cap and a rounded
+  gill plate, an amber eye, a body of tiny sequins with a white blaze on the
+  back, and translucent veil fins with fine rays and specks. Individual
+  sequins glint at random; the tail runs as a travelling wave.
+- **Water.** A brushed, vertically streaked ground, light shafts from above,
+  drifting caustics and motes. At night the fish gain a warm glow.
+- **Time of day.** The page reads the visitor's clock: day 07:00–16:30, dusk
+  16:30–20:30 and 05:30–07:00, midnight otherwise. It re-checks every 20 s and
+  cross-fades palette, ground and effects over six seconds when the mood
+  changes. The bottom controls pin a mood (`auto` returns to the clock);
+  `?mood=day|dusk|midnight` in the URL pins it for screenshots and reviews,
+  and `?motion=reduce` forces the still frame for review.
+- **Motion and access.** Under `prefers-reduced-motion: reduce` the scene
+  renders a single still frame (the mood controls still work, re-rendering
+  once). The canvas is decorative (`aria-hidden`); the hint line is a
+  `role="status"` region that announces the current mood; the controls are
+  native buttons with `aria-pressed`.
+- **Budget.** One self-contained HTML file (about 48 KB raw); no fonts, images,
+  scripts or requests beyond the page itself. The footer credit is the only
+  outward link.
 
 ## Provenance
 
@@ -23,6 +52,13 @@ shape follow the structural pattern used by Ember at that same revision.
 
 Only infrastructure patterns were carried over. Fathom owns its implementation
 and will evolve independently.
+
+The artwork engine grew through four local prototype rounds (65 variants in a
+gallery that is not tracked here). Two paintings of sequined fish were used as
+visual reference only, including the goldfish study by Zima Angela
+(t.me/myangelart); no third-party imagery, fonts or code ship with the page.
+The lab chrome (wordmark with the gold dot, study tag, footer credit) is
+carried over from Ember by client decision.
 
 ## Structure
 
@@ -63,8 +99,8 @@ environment is created by the bootstrap pull request.
 
 ## Open questions
 
-- visual and interaction concept;
-- whether the work uses sound and, if so, its user-gesture and mute contract;
-- final identity, copy, favicon, and social card;
-- canonical domain and deployment approval;
+- canonical domain and deployment approval (`fathom.ks-design.art` is the
+  obvious candidate, not yet decided);
+- social card and baked PNG icons (the page ships an inline SVG favicon only);
+- whether the work ever gains sound (none planned);
 - final browser, viewport, and performance support targets.
