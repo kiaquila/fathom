@@ -15,9 +15,6 @@ for (const path of [
   ".github/dependabot.yml",
   ".github/pull_request_template.md",
   ".github/workflows/ci.yml",
-  ".github/workflows/codex-review-request.yml",
-  ".github/workflows/codex-review-rerun.yml",
-  ".github/workflows/codex-review.yml",
   ".gitignore",
   "AGENTS.md",
   "CLAUDE.md",
@@ -25,12 +22,7 @@ for (const path of [
   "package.json",
   "scripts/check-performance-budget.mjs",
   "scripts/check-repository.mjs",
-  "scripts/codex-review-gate.mjs",
-  "scripts/codex-review-helpers.mjs",
-  "scripts/codex-review-request.mjs",
-  "scripts/codex-review-rerun.mjs",
   "scripts/config.mjs",
-  "scripts/publish-codex-review-check.mjs",
   "scripts/run-project-checks.mjs",
   "web-design.config.json"
 ]) {
@@ -92,6 +84,7 @@ for (const file of files) {
 }
 
 for (const workflow of files.filter((file) => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(file))) {
+  if (!existsSync(join(root, workflow))) continue;
   const text = readFileSync(join(root, workflow), "utf8");
   if (/\bpull_request_target\b/.test(text)) failures.push(`High-risk pull_request_target trigger in ${workflow}`);
   if (!/^permissions:\s*(?:\n|$)/m.test(text)) failures.push(`Workflow must declare top-level permissions: ${workflow}`);

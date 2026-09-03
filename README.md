@@ -36,9 +36,10 @@ website/
 ```
 
 Root-level scripts provide repository policy, project-check orchestration,
-performance budgets, dependency scanning, and the current-head Codex review
-gate. The required review result is published only by default-branch
-orchestration; pull-request YAML cannot mint its own passing review check.
+performance budgets, and dependency scanning. Codex reviews are requested on
+the current pull-request head and evaluated before merge; they are not exposed
+as a required status check because GitHub does not provide the native Codex
+review as an app-bound check run in this repository.
 
 ## Commands
 
