@@ -480,7 +480,10 @@ function scene(canvas, cfg) {
     resize(S) { const d = st.dims || { w: S.w, h: S.h, min: S.min }; const kx = S.w / d.w, ky = S.h / d.h, km = S.min / d.min;
       for (const l of st.layers) for (const f of l.fish) { f.x *= kx; f.y *= ky; f.laneY *= ky; f.L *= km; f.scale = f.L / f.sp.L; f.speed *= km; }
       for (const m of st.motes) { m.x *= kx; m.y *= ky; }
-      st.dims = { w: S.w, h: S.h, min: S.min }; st.bg = {}; st.baseBg = null; st.blendBg = null; st.blendAt = -1; if (cfg.static) setTimeout(() => scn.render(), 0); bgFor(S, st.mood); if (st.moodTo) bgFor(S, st.moodTo); if (E.caustics) st.caus = [causticLayer(S.w, S.h, 81, E.caustics.tint), causticLayer(S.w, S.h, 82, E.caustics.tint)]; if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)]; },
+      st.dims = { w: S.w, h: S.h, min: S.min }; st.bg = {}; st.blendBg = null; st.blendAt = -1;
+      /* a captured base (retargeted fade) is rescaled rather than dropped, so the ground does not snap back mid-transition */
+      if (st.baseBg) { const c = document.createElement('canvas'); c.width = Math.ceil(S.w * S.dpr); c.height = Math.ceil(S.h * S.dpr); c.getContext('2d').drawImage(st.baseBg, 0, 0, c.width, c.height); st.baseBg = c; }
+      if (cfg.static) setTimeout(() => scn.render(), 0); bgFor(S, st.mood); if (st.moodTo) bgFor(S, st.moodTo); if (E.caustics) st.caus = [causticLayer(S.w, S.h, 81, E.caustics.tint), causticLayer(S.w, S.h, 82, E.caustics.tint)]; if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)]; },
     update(S, dt) {
       st.clockT += dt; if (st.auto && st.clockT > 20) { st.clockT = 0; const m = moodForDate(); if (m !== (st.moodTo || st.mood)) setMood(S, m); }
       if (st.moodTo) { st.fade = Math.min(1, st.fade + dt / (cfg.fadeSeconds || 6)); if (st.fade >= 1) { st.mood = st.moodTo; st.moodTo = null; st.baseBg = null; st.blendBg = null; st.fxFrom = MOOD_FX[st.mood]; for (const l of st.layers) { l.sprites = l.sprites2; l.sprites2 = null; l.blend = null; for (const f of l.fish) { f.sp = f.sp2; f.sp2 = null; } } rebuildGlows(); } else if (st.fade - st.blendAt >= 0.02) updateBlend(S); }
