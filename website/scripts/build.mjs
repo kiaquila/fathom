@@ -11,12 +11,13 @@ const SERVED = ["index.html"];
 
 const CHARACTER_REFERENCE = /&(?:#x?[0-9a-f]+|[a-z][a-z0-9]*);/gi;
 const DATA_URI = /data:[^"'\s)]+/gi;
-/* The one thing allowed to point outward is the footer credit: exactly this
-   URL, and only as an anchor's href. Character references are decoded before
-   the match, so an encoded second link cannot hide behind the allowance, and
-   an anchor's other attributes — an inline background, a `ping` — stay
-   visible to the scan. */
+/* The outward references are deliberately exact: the footer credit and the
+   canonical tag. Character references are decoded before the match, so an
+   encoded second link cannot hide behind the allowance, and an anchor's other
+   attributes — an inline background, a `ping` — stay visible to the scan. */
 const APPROVED_LINKS = ["https://ks-design.art"];
+const CANONICAL_ORIGIN = "https://fathom.ks-design.art";
+const CANONICAL_TAG = `<link rel="canonical" href="${CANONICAL_ORIGIN}">`;
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const ANCHOR_HREF = new RegExp(
   `(<a\\b[^>]*?\\bhref\\s*=\\s*)(["'])(?:${APPROVED_LINKS.map(escapeRegExp).join("|")})\\2`,
@@ -42,6 +43,7 @@ function decodeCharacterReferences(markup) {
 export function findOffOrigin(markup) {
   const scannable = decodeCharacterReferences(markup)
     .replace(DATA_URI, "data:inline")
+    .replaceAll(CANONICAL_TAG, '<link rel="canonical" href="local">')
     .replace(ANCHOR_HREF, "$1$2local$2");
   const references = [...scannable.matchAll(OFF_ORIGIN)].map((match) => match[0]);
   if (/@import/i.test(scannable)) references.push("@import");
@@ -71,6 +73,7 @@ async function main() {
     .map((match) => match[1] ?? match[2] ?? match[3])
     .concat(srcsetCandidates)
     .filter((reference) => reference && !/^(?:data:|#)/i.test(reference))
+    .filter((reference) => reference !== CANONICAL_ORIGIN)
     .filter((reference) => !SERVED.includes(reference.replace(/^\.?\//, "")));
   if (unresolved.length > 0) {
     throw new Error(`The page references unpublished files: ${unresolved.join(", ")}`);

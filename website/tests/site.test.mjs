@@ -21,10 +21,13 @@ test("the shipped page has no runtime network dependency", async () => {
   assert.deepEqual(findOffOrigin(page), []);
   assert.doesNotMatch(page, /<link[^>]+rel=["']?stylesheet/i);
   assert.doesNotMatch(page, /<script[^>]+src=/i);
-  /* The footer credit is the only reference allowed to leave the origin, and
-     only as an anchor's href; the allowance must not have become a tunnel. */
+  /* The footer credit and exact canonical tag are the only references allowed
+     to leave the origin; neither allowance may become a tunnel. */
   const outward = [...page.matchAll(/(?:src|href)\s*=\s*["']([a-z]+:)?\/\/[^"']+/gi)].map((match) => match[0]);
-  assert.deepEqual(outward, ['href="https://ks-design.art']);
+  assert.deepEqual(outward, [
+    'href="https://fathom.ks-design.art',
+    'href="https://ks-design.art'
+  ]);
   const bad = (markup) => findOffOrigin(markup).length > 0;
   assert.ok(bad('<img src="https://cdn.example.com/a.png">'));
   assert.ok(bad('<img src="https:&#x2f;&#x2f;cdn.example.com/a.png">'));
@@ -33,7 +36,10 @@ test("the shipped page has no runtime network dependency", async () => {
   assert.ok(bad('<a href="https://evil.example.com">x</a>'), "a second anchor target passes");
   assert.ok(bad('<a href="https:&#x2f;&#x2f;evil.example.com">x</a>'), "an encoded anchor target passes");
   assert.ok(bad('<a href="https://ks-design.art/?u=https://evil.example.com">x</a>'), "a non-exact approved URL passes");
+  assert.ok(bad('<link rel="canonical" href="https://evil.example.com">'));
+  assert.ok(bad('<link rel="canonical" href="https://fathom.ks-design.art" ping="https://evil.example.com">'));
   assert.ok(!bad('<a href="https://ks-design.art" rel="author">ks-design</a>'));
+  assert.ok(!bad('<link rel="canonical" href="https://fathom.ks-design.art">'));
 });
 
 test("the page keeps essential document and canvas semantics", () => {
@@ -60,10 +66,9 @@ test("the lab chrome is present and the time-of-day controls are accessible", ()
   assert.match(page, /function moodForDate/);
 });
 
-test("the page names no canonical origin yet", () => {
-  /* No domain or deployment has been approved, so the page must not promise
-     a social card or canonical URL. */
-  assert.doesNotMatch(page, /og:(?:url|image)/);
+test("the page names the approved canonical origin", () => {
+  assert.match(page, /<link rel="canonical" href="https:\/\/fathom\.ks-design\.art">/);
+  assert.doesNotMatch(page, /og:image/);
   assert.doesNotMatch(page, /<form\b/i);
 });
 
@@ -75,7 +80,11 @@ test("the Worker and Wrangler configuration apply the security boundary", async 
   assert.equal(wrangler.assets.directory, "./dist");
   assert.equal(wrangler.assets.binding, "ASSETS");
   assert.equal(wrangler.assets.run_worker_first, true);
+  assert.equal(wrangler.assets.html_handling, "auto-trailing-slash");
+  assert.equal(wrangler.assets.not_found_handling, "single-page-application");
+  assert.equal(wrangler.workers_dev, true);
   assert.equal(wrangler.preview_urls, true);
+  assert.equal(wrangler.observability.enabled, true);
   assert.match(worker, /Content-Security-Policy/);
   assert.match(worker, /connect-src 'none'/);
   assert.match(worker, /frame-ancestors 'none'/);
