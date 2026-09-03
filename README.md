@@ -1,8 +1,8 @@
 # Fathom
 
-`fathom` is a public development repository for a new experimental web-art
-piece by **ks·design**. The repository is ready for concept work, but the
-artwork itself is intentionally not defined yet.
+`fathom` is a public repository for an experimental web-art piece by
+**ks·design**: a school of sequined goldfish drifting through painted water
+that follows the visitor's local time of day.
 
 ## Current status
 
