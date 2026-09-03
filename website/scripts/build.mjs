@@ -11,10 +11,17 @@ const SERVED = ["index.html"];
 
 const CHARACTER_REFERENCE = /&(?:#x?[0-9a-f]+|[a-z][a-z0-9]*);/gi;
 const DATA_URI = /data:[^"'\s)]+/gi;
-/* The one thing allowed to point outward is an anchor's href (the footer
-   credit). Exactly that attribute is blanked before the scan, so an anchor's
-   other attributes — an inline background, a `ping` — stay visible to it. */
-const ANCHOR_HREF = /(<a\b[^>]*?\bhref\s*=\s*)(["'])[^"']*\2/gi;
+/* The one thing allowed to point outward is the footer credit: exactly this
+   URL, and only as an anchor's href. Character references are decoded before
+   the match, so an encoded second link cannot hide behind the allowance, and
+   an anchor's other attributes — an inline background, a `ping` — stay
+   visible to the scan. */
+const APPROVED_LINKS = ["https://ks-design.art"];
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const ANCHOR_HREF = new RegExp(
+  `(<a\\b[^>]*?\\bhref\\s*=\\s*)(["'])(?:${APPROVED_LINKS.map(escapeRegExp).join("|")})\\2`,
+  "gi"
+);
 const OFF_ORIGIN = /(?:\b(?:https?|ftp|wss?):[^\s"'()<>]+)|(?:(?:[a-z][a-z0-9+.-]*:)?\/\/[^\s"'()<>]+)/gi;
 const LOCAL_REFERENCE =
   /(?:\b(?:src|poster)\s*=\s*["']([^"']+)["']|<link\b[^>]*\bhref\s*=\s*["']([^"']+)["']|\burl\(\s*["']?([^"')]+)["']?\s*\))/gi;

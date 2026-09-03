@@ -30,6 +30,9 @@ test("the shipped page has no runtime network dependency", async () => {
   assert.ok(bad('<img src="https:&#x2f;&#x2f;cdn.example.com/a.png">'));
   assert.ok(bad('<a href="https://ks-design.art" ping="https://evil.example.com/p">x</a>'));
   assert.ok(bad('<a href="https://ks-design.art" style="background:url(https://evil.example.com/a.png)">x</a>'));
+  assert.ok(bad('<a href="https://evil.example.com">x</a>'), "a second anchor target passes");
+  assert.ok(bad('<a href="https:&#x2f;&#x2f;evil.example.com">x</a>'), "an encoded anchor target passes");
+  assert.ok(bad('<a href="https://ks-design.art/?u=https://evil.example.com">x</a>'), "a non-exact approved URL passes");
   assert.ok(!bad('<a href="https://ks-design.art" rel="author">ks-design</a>'));
 });
 

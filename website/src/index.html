@@ -428,7 +428,7 @@ const MOTION = {
 function buildSprites(S, L, cfg, idx, mood) {
   const rnd = mulberry32((cfg.seed || 1) * 131 + idx * 17 + 1000); const n = L.sprites || 4; const out = [];
   for (let i = 0; i < n; i++) { const hk = 0.92 + 0.16 * rnd(), tailK = (L.tailK || cfg.tailK || 1) * (0.9 + 0.2 * rnd());
-    let sp = makeSprite({ L: L.spriteL || 300, seed: (cfg.seed || 1) * 100 + idx * 10 + i, palette: mood, seqDiv: L.seqDiv || cfg.seqDiv || 56, coverage: L.coverage || cfg.coverage || 1, hk, tailK, finK: L.finK || cfg.finK || 1, warm: cfg.warm || 0, bright: cfg.bright == null ? 1 : cfg.bright });
+    let sp = makeSprite({ L: L.spriteL || Math.max(100, Math.min(320, Math.round(S.min * L.max * 1.1))), seed: (cfg.seed || 1) * 100 + idx * 10 + i, palette: mood, seqDiv: L.seqDiv || cfg.seqDiv || 56, coverage: L.coverage || cfg.coverage || 1, hk, tailK, finK: L.finK || cfg.finK || 1, warm: cfg.warm || 0, bright: cfg.bright == null ? 1 : cfg.bright });
     const avgScale = S.min * (L.min + L.max) / 2 / sp.L; if (L.blur) sp = blurSprite(sp, L.blur / avgScale); if (L.fog) sp = fogSprite(sp, BG[mood].top, L.fog); out.push(sp); }
   return out;
 }
@@ -446,21 +446,25 @@ function scene(canvas, cfg) {
   const params = new URLSearchParams(location.search); const forced = params.get('mood'); if (forced && MOOD_LABEL[forced]) st.auto = false;
   st.mood = forced && MOOD_LABEL[forced] ? forced : moodForDate();
   function bgFor(S, mood) { if (!st.bg[mood]) st.bg[mood] = paintBackground(S.w, S.h, Object.assign({}, BG[mood], cfg.bg || {}), S.dpr); return st.bg[mood]; }
-  function glowsFor(l) { for (const sp of l.sprites) if (!st.glows.has(sp)) st.glows.set(sp, glowSprite(sp, E.glowColor || 'rgba(255,200,110,1)', 9)); }
-  function setMood(S, mood, instant) { if (mood === st.mood && !st.moodTo) return; if (instant) { st.mood = mood; st.moodTo = null; st.fade = 1; for (const l of st.layers) { l.sprites = buildSprites(S, l.cfg, cfg, l.idx, mood); for (const f of l.fish) f.sp = l.sprites[f.spi]; glowsFor(l); } st.bgTo = null; return; }
+  /* Glow canvases are keyed by sprite; rebuilding the map after every sprite swap evicts the previous mood's canvases. */
+  function glowsFor(l) { if (l.cfg.glow === false) return; for (const sp of l.sprites) if (!st.glows.has(sp)) st.glows.set(sp, glowSprite(sp, E.glowColor || 'rgba(255,200,110,1)', 9)); }
+  function rebuildGlows() { st.glows = new Map(); for (const l of st.layers) glowsFor(l); }
+  function setMood(S, mood, instant) { if (mood === st.mood && !st.moodTo) return; if (instant) { st.mood = mood; st.moodTo = null; st.fade = 1; for (const l of st.layers) { l.sprites = buildSprites(S, l.cfg, cfg, l.idx, mood); for (const f of l.fish) f.sp = l.sprites[f.spi]; } rebuildGlows(); st.bgTo = null; return; }
     if (st.moodTo === mood) return; if (st.moodTo) { /* finish current fade */ st.mood = st.moodTo; for (const l of st.layers) { l.sprites = l.sprites2; for (const f of l.fish) f.sp = l.sprites[f.spi]; } }
     st.moodTo = mood; st.fade = 0; for (const l of st.layers) { l.sprites2 = buildSprites(S, l.cfg, cfg, l.idx, mood); for (const f of l.fish) f.sp2 = l.sprites2[f.spi]; } }
   const scn = run(canvas, {
     static: !!cfg.static,
-    setup(S) { S.ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); S.ctx.drawImage(bgFor(S, st.mood), 0, 0, S.w, S.h); st.layers = cfg.layers.map((L, i) => makeLayer(S, L, cfg, i, st.mood)); st.ctx.all = st.layers.flatMap(l => l.fish); bgFor(S, st.mood); for (const l of st.layers) glowsFor(l);
+    setup(S) { S.ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); S.ctx.drawImage(bgFor(S, st.mood), 0, 0, S.w, S.h); st.layers = cfg.layers.map((L, i) => makeLayer(S, L, cfg, i, st.mood)); st.ctx.all = st.layers.flatMap(l => l.fish); bgFor(S, st.mood); rebuildGlows(); st.dims = { w: S.w, h: S.h, min: S.min };
       if (E.caustics) st.caus = [causticLayer(S.w, S.h, 81, E.caustics.tint), causticLayer(S.w, S.h, 82, E.caustics.tint)];
       if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)];
       if (E.motes) st.motes = Array.from({ length: E.motes }, () => ({ x: Math.random() * S.w, y: Math.random() * S.h, s: 0.6 + Math.random() * 1.7, v: 3 + Math.random() * 9, p: Math.random() * 7, a: 0.12 + Math.random() * 0.3 }));
       cfg.setup && cfg.setup(S, st); },
-    resize(S) { st.bg = {}; if (cfg.static) setTimeout(() => scn.render(), 0); bgFor(S, st.mood); if (st.moodTo) bgFor(S, st.moodTo); if (E.caustics) st.caus = [causticLayer(S.w, S.h, 81, E.caustics.tint), causticLayer(S.w, S.h, 82, E.caustics.tint)]; if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)]; },
+    resize(S) { const d = st.dims || { w: S.w, h: S.h, min: S.min }; const kx = S.w / d.w, ky = S.h / d.h, km = S.min / d.min;
+      for (const l of st.layers) for (const f of l.fish) { f.x *= kx; f.y *= ky; f.laneY *= ky; f.L *= km; f.scale = f.L / f.sp.L; f.speed *= km; }
+      st.dims = { w: S.w, h: S.h, min: S.min }; st.bg = {}; if (cfg.static) setTimeout(() => scn.render(), 0); bgFor(S, st.mood); if (st.moodTo) bgFor(S, st.moodTo); if (E.caustics) st.caus = [causticLayer(S.w, S.h, 81, E.caustics.tint), causticLayer(S.w, S.h, 82, E.caustics.tint)]; if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)]; },
     update(S, dt) {
       st.clockT += dt; if (st.auto && st.clockT > 20) { st.clockT = 0; const m = moodForDate(); if (m !== (st.moodTo || st.mood)) setMood(S, m); }
-      if (st.moodTo) { st.fade = Math.min(1, st.fade + dt / (cfg.fadeSeconds || 6)); if (st.fade >= 1) { st.mood = st.moodTo; st.moodTo = null; for (const l of st.layers) { l.sprites = l.sprites2; l.sprites2 = null; for (const f of l.fish) { f.sp = f.sp2; f.sp2 = null; } glowsFor(l); } } }
+      if (st.moodTo) { st.fade = Math.min(1, st.fade + dt / (cfg.fadeSeconds || 6)); if (st.fade >= 1) { st.mood = st.moodTo; st.moodTo = null; for (const l of st.layers) { l.sprites = l.sprites2; l.sprites2 = null; for (const f of l.fish) { f.sp = f.sp2; f.sp2 = null; } } rebuildGlows(); } }
       const tx = S.pointer.active ? S.pointer.x / S.w - 0.5 : 0, ty = S.pointer.active ? S.pointer.y / S.h - 0.5 : 0; st.px += (tx - st.px) * 1.4 * dt; st.py += (ty - st.py) * 1.4 * dt;
       const fxA = MOOD_FX[st.mood], fxB = MOOD_FX[st.moodTo || st.mood], mix = k => lerp(fxA[k], fxB[k], st.fade); st.fx = { glow: mix('glow'), caustics: mix('caustics'), rays: mix('rays'), motes: mix('motes'), sweep: mix('sweep'), glintK: mix('glintK') };
       const P = PALETTES[st.moodTo || st.mood];
@@ -513,7 +517,7 @@ return { makeSprite, drawFish, blurSprite, fogSprite, glowSprite, tickGlints, pa
   }
   for (const b of buttons) b.addEventListener("click", () => { scn.setMood(b.dataset.mood); refresh(); });
   reduced.addEventListener("change", () => { location.reload(); });
-  if (reduced.matches) setInterval(() => { if (scn.state.auto) { scn.setMood("auto"); refresh(); } }, 60000);
+  if (CFG.static) setInterval(() => { if (scn.state.auto) { scn.setMood("auto"); refresh(); } }, 60000);
   setInterval(refresh, 4000);
   refresh();
   document.documentElement.dataset.ready = "true";
