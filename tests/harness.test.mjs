@@ -48,7 +48,11 @@ function deconfigure(root) {
 
 function makeFixture({ configured = true } = {}) {
   const root = mkdtempSync(join(tmpdir(), "web-design-template-"));
-  cpSync(templateRoot, root, { recursive: true });
+  const worktreeGitFile = join(templateRoot, ".git");
+  cpSync(templateRoot, root, {
+    recursive: true,
+    filter: (source) => source !== worktreeGitFile
+  });
   if (configured) configure(root);
   else deconfigure(root);
   const git = spawnSync("git", ["init", "-q"], { cwd: root, encoding: "utf8" });

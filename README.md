@@ -37,7 +37,8 @@ website/
 
 Root-level scripts provide repository policy, project-check orchestration,
 performance budgets, dependency scanning, and the current-head Codex review
-gate.
+gate. The required review result is published only by default-branch
+orchestration; pull-request YAML cannot mint its own passing review check.
 
 ## Commands
 

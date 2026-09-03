@@ -14,3 +14,4 @@ scripts/config.mjs                   linguist-vendored
 scripts/publish-codex-review-check.mjs linguist-vendored
 scripts/run-project-checks.mjs       linguist-vendored
 tests/harness.test.mjs               linguist-vendored
+tests/codex-review.test.mjs          linguist-vendored
