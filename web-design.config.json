@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "projectSlug": "fathom",
+  "projectChecks": [
+    {
+      "name": "fathom website",
+      "command": [
+        "npm",
+        "run",
+        "check",
+        "--prefix",
+        "website"
+      ]
+    }
+  ],
+  "performance": {
+    "outputDirectory": "website/dist",
+    "criticalFiles": [
+      "index.html"
+    ],
+    "allowedExtensions": [
+      ".css",
+      ".html",
+      ".ico",
+      ".jpg",
+      ".js",
+      ".json",
+      ".png",
+      ".svg",
+      ".txt",
+      ".webp",
+      ".woff2",
+      ".xml"
+    ],
+    "budgets": {
+      "totalRawBytes": 1572864,
+      "totalGzipBytes": 524288,
+      "criticalGzipBytes": 46080,
+      "extensions": {
+        ".html": {
+          "rawBytes": 61440
+        },
+        ".css": {
+          "rawBytes": 61440
+        },
+        ".js": {
+          "rawBytes": 49152,
+          "gzipBytes": 20480
+        },
+        ".woff2": {
+          "rawBytes": 204800
+        },
+        ".jpg": {
+          "rawBytes": 307200
+        },
+        ".png": {
+          "rawBytes": 524288
+        },
+        ".webp": {
+          "rawBytes": 524288
+        }
+      }
+    }
+  }
+}

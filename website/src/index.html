@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Fathom is an experimental web-art study in development.">
+    <meta name="color-scheme" content="dark">
+    <title>Fathom — art study</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        background: #090a0d;
+        color: #f1efe8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100svh;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        padding: clamp(1rem, 3vw, 2rem);
+        background: #090a0d;
+      }
+
+      header,
+      footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        color: #aaa9a4;
+        font-size: 0.75rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      main {
+        position: relative;
+        display: grid;
+        min-height: 16rem;
+        place-items: center;
+      }
+
+      canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .status {
+        position: relative;
+        margin: 0;
+        color: #d8d5cc;
+        font-size: clamp(0.85rem, 1.5vw, 1rem);
+        letter-spacing: 0.08em;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header aria-label="Project identity">
+      <span>ks·design lab</span>
+      <span>fathom</span>
+    </header>
+    <main>
+      <canvas id="stage" aria-hidden="true"></canvas>
+      <p class="status" role="status">Art study in development</p>
+    </main>
+    <footer>
+      <span>Experimental web art</span>
+      <span>2026</span>
+    </footer>
+    <script>
+      const canvas = document.querySelector("#stage");
+      const context = canvas.getContext("2d");
+      let resizeFrame = 0;
+
+      function resizeStage() {
+        const ratio = Math.min(window.devicePixelRatio || 1, 2);
+        const bounds = canvas.getBoundingClientRect();
+        canvas.width = Math.max(1, Math.round(bounds.width * ratio));
+        canvas.height = Math.max(1, Math.round(bounds.height * ratio));
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+        context.clearRect(0, 0, bounds.width, bounds.height);
+        document.documentElement.dataset.ready = "true";
+      }
+
+      window.addEventListener("resize", () => {
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(resizeStage);
+      }, { passive: true });
+      resizeStage();
+    </script>
+  </body>
+</html>

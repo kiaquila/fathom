@@ -1,0 +1,17 @@
+# Keep the copied harness out of GitHub Linguist language statistics so the
+# repository language bar describes the website, not its guardrails. These
+# files are development infrastructure, not product code.
+#
+# Delete a line if the project genuinely owns that file as product code, and
+# add project-specific rules below this block.
+scripts/check-performance-budget.mjs linguist-vendored
+scripts/check-repository.mjs         linguist-vendored
+scripts/codex-review-gate.mjs        linguist-vendored
+scripts/codex-review-helpers.mjs     linguist-vendored
+scripts/codex-review-request.mjs     linguist-vendored
+scripts/codex-review-rerun.mjs       linguist-vendored
+scripts/config.mjs                   linguist-vendored
+scripts/publish-codex-review-check.mjs linguist-vendored
+scripts/run-project-checks.mjs       linguist-vendored
+tests/harness.test.mjs               linguist-vendored
+tests/codex-review.test.mjs          linguist-vendored
