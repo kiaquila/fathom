@@ -1,112 +1,549 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Fathom is an experimental web-art study in development.">
-    <meta name="color-scheme" content="dark">
-    <title>Fathom — art study</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        font-family: ui-sans-serif, system-ui, sans-serif;
-        background: #090a0d;
-        color: #f1efe8;
-      }
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fathom — ks-design lab</title>
+<meta name="description" content="Study 03 of the ks·design lab: a school of sequined goldfish drifts endlessly through painted water that follows your local time of day.">
+<link rel="canonical" href="https://fathom.ks-design.art">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjciIGZpbGw9IiNkOWE2NGEiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIyNyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOGE1YTFlIiBzdHJva2Utd2lkdGg9IjIiLz48Y2lyY2xlIGN4PSIyMyIgY3k9IjIzIiByPSI4IiBmaWxsPSIjZmZmIiBvcGFjaXR5PSIuOTIiLz48Y2lyY2xlIGN4PSI0MCIgY3k9IjQyIiByPSIzIiBmaWxsPSIjZmZmIiBvcGFjaXR5PSIuNTUiLz48L3N2Zz4=">
+<style>
+  :root {
+    --bg: #98a9b7;
+    --ink: #262c33;
+    --muted: rgba(38, 44, 51, 0.62);
+    --line: rgba(38, 44, 51, 0.22);
+    --pill: rgba(255, 255, 255, 0.28);
+    --pill-on: rgba(255, 255, 255, 0.62);
+    --gold: #b07f2f;
+    --gold-dot: #e8a038;
+  }
+  body[data-mood="dusk"] {
+    --bg: #5b7085;
+    --ink: #f1ede5;
+    --muted: rgba(241, 237, 229, 0.62);
+    --line: rgba(241, 237, 229, 0.28);
+    --pill: rgba(255, 255, 255, 0.1);
+    --pill-on: rgba(255, 255, 255, 0.3);
+    --gold: #e6b45c;
+  }
+  body[data-mood="midnight"] {
+    --bg: #0c141c;
+    --ink: #ece8e0;
+    --muted: rgba(236, 232, 224, 0.58);
+    --line: rgba(236, 232, 224, 0.24);
+    --pill: rgba(255, 255, 255, 0.08);
+    --pill-on: rgba(255, 255, 255, 0.24);
+    --gold: #e8b95a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, "Helvetica Neue", Arial, sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    transition: background 2s ease, color 2s ease;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+  }
+  .chrome {
+    position: fixed;
+    left: 0;
+    right: 0;
+    display: flex;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .chrome > * { pointer-events: auto; }
+  .top {
+    top: 0;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 22px 28px;
+  }
+  .tag {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    transition: color 2s ease;
+  }
+  .tag strong { color: var(--ink); font-weight: 600; transition: color 2s ease; }
+  /* The gold dot is decorative, so the wordmark needs a real separator in the
+     accessible name — without it the mark is announced as one word. */
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* The dot sits nearer the KS than the DESIGN in a strict 1:2 proportion —
+     0.15em after the S, 0.30em before the D. The tag's 0.22em letter-spacing
+     already pads the left side, so the left margin only trims it back. */
+  .dot {
+    display: inline-block;
+    width: 0.42em;
+    height: 0.42em;
+    border-radius: 50%;
+    background: var(--gold-dot);
+    margin: 0 0.3em 0 -0.07em;
+  }
+  .bottom {
+    bottom: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 0 20px 18px;
+  }
+  .hint {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: center;
+    transition: color 2s ease;
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+  }
+  .ctl {
+    min-width: 64px;
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--pill);
+    color: var(--ink);
+    font: inherit;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.25s ease, border-color 0.25s ease, color 2s ease, transform 0.15s ease;
+    backdrop-filter: blur(4px);
+  }
+  .ctl:hover { background: var(--pill-on); }
+  .ctl:active { transform: scale(0.96); }
+  .ctl[aria-pressed="true"] { background: var(--pill-on); border-color: var(--ink); }
+  .ctl:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  footer {
+    text-align: center;
+    padding-top: 2px;
+  }
+  footer p {
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    transition: color 2s ease;
+  }
+  footer a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+  footer a:hover { border-color: var(--gold); color: var(--gold); }
+  footer a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  @media (max-width: 560px) {
+    .top { padding: 16px 18px; }
+    .tag { font-size: 10px; letter-spacing: 0.16em; }
+    .hint { font-size: 10px; }
+    .bottom { gap: 12px; padding-bottom: 14px; }
+    .ctl { min-width: 0; padding: 0 12px; height: 34px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body, .tag, .tag strong, .hint, footer p, .ctl { transition: none; }
+  }
+</style>
+</head>
+<body data-mood="day">
+<canvas id="stage" aria-hidden="true"></canvas>
 
-      * {
-        box-sizing: border-box;
-      }
+<header class="chrome top">
+  <span class="tag"><strong>ks<i class="dot" aria-hidden="true"></i><span class="visually-hidden"> </span>design</strong> · lab</span>
+  <span class="tag">study 03 — fathom</span>
+</header>
 
-      html,
-      body {
-        min-height: 100%;
-        margin: 0;
-      }
+<div class="chrome bottom">
+  <p class="hint" id="hint" role="status">the water follows your clock</p>
+  <div class="controls" role="group" aria-label="Time of day">
+    <button class="ctl" type="button" data-mood="auto" aria-pressed="true">auto</button>
+    <button class="ctl" type="button" data-mood="day" aria-pressed="false">day</button>
+    <button class="ctl" type="button" data-mood="dusk" aria-pressed="false">dusk</button>
+    <button class="ctl" type="button" data-mood="midnight" aria-pressed="false">midnight</button>
+  </div>
+  <footer>
+    <p>Designed by <a href="https://ks-design.art" rel="author">ks-design</a> · Built with AI workflows</p>
+  </footer>
+</div>
 
-      body {
-        min-height: 100svh;
-        display: grid;
-        grid-template-rows: auto 1fr auto;
-        padding: clamp(1rem, 3vw, 2rem);
-        background: #090a0d;
-      }
+<script>
+/* Fathom — study 03. A school of sequined goldfish drifts through painted water.
+   The scene keys itself to the visitor's local clock: day 07:00–16:30, dusk
+   16:30–20:30 and 05:30–07:00, midnight otherwise, cross-fading on change.
+   Everything is drawn procedurally on one canvas; nothing is fetched. */
+const K = (function () {
+'use strict';
+const TAU = Math.PI * 2;
+function mulberry32(seed) { let a = (seed * 1000003) >>> 0; return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const lerp = (a, b, t) => a + (b - a) * t, clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const pick = (rnd, arr) => arr[(rnd() * arr.length) | 0];
+function makeNoise(seed) { const r = mulberry32(seed); const N = 64; const g = new Float32Array(N * N); for (let i = 0; i < g.length; i++) g[i] = r(); const v = (i, j) => g[(i & 63) + (j & 63) * N]; return (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy); return lerp(lerp(v(xi, yi), v(xi + 1, yi), sx), lerp(v(xi, yi + 1), v(xi + 1, yi + 1), sx), sy); }; }
+function fbm(n, x, y, o) { o = o || 3; let a = 0, amp = 0.5, f = 1, s = 0; for (let i = 0; i < o; i++) { a += n(x * f, y * f) * amp; s += amp; amp *= 0.5; f *= 2; } return a / s; }
+function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function vary(h, k) { const c = hexToRgb(h).map(v => clamp(Math.round(k >= 0 ? v + (255 - v) * k : v * (1 + k)), 0, 255)); return `rgb(${c[0]},${c[1]},${c[2]})`; }
 
-      header,
-      footer {
-        display: flex;
-        justify-content: space-between;
-        gap: 1rem;
-        color: #aaa9a4;
-        font-size: 0.75rem;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-      }
+/* ---------- palettes per mood ---------- */
+const PALETTES = {
+  day: {
+    white: ['#ffffff', '#fbfaf7', '#f4f2ee', '#fdfcfa'], silver: ['#c8d1da', '#b4bfcb', '#dfe5eb', '#9fabb9', '#eef1f4', '#8e9baa'], pewter: ['#8c98a6', '#7a8797', '#a3aeba'],
+    gold: ['#d69a45', '#e8b65e', '#c2852f', '#f0c878', '#b6772c', '#dda64f', '#f3d896'], copper: ['#c47d3a', '#d99253', '#a9642a', '#e6a86e'],
+    skin: { cap: '#d4733a', back: '#cf934f', mid: '#e6ae6e', low: '#f0c690', belly: '#f7e0bf', head: '#e8973f', headHi: '#fbd6a2', gill: 'rgba(140,70,25,0.45)', silverZone: 'rgba(150,165,180,0.55)', edge: 'rgba(120,70,30,0.45)' },
+    fin: { fill: 'rgba(245,238,226,1)', ray: 'rgba(200,175,150,0.5)', light: 'rgba(255,255,255,0.7)', spark: 'rgba(255,255,255,0.9)', tint: 'rgba(230,180,130,0.25)' },
+    eye: { iris: '#e0913c', ring: '#7d4218', pupil: '#0e0a07' }, rim: 'rgba(90,60,30,0.35)', glint: '#ffffff', bloom: 'rgba(255,250,240,1)'
+  },
+};
+PALETTES.dusk = { white: ['#f7f7f7', '#eeeff1', '#e4e6e9'], silver: ['#b6c0cb', '#a2adbb', '#cdd5dd', '#8f9cab', '#dbe1e7', '#7f8c9b'], pewter: ['#7c8896', '#6c7887', '#93a0ad'],
+  gold: ['#cf9440', '#e0ae58', '#ba7f2b', '#e8c070', '#ad7128', '#d49f4a', '#ebd08e'], copper: ['#bb7635', '#cf8b4d', '#a05e26', '#dc9f66'],
+  skin: { cap: '#b8602c', back: '#b7813f', mid: '#d29c5e', low: '#e0b47c', belly: '#e9cfa6', head: '#d38637', headHi: '#efc088', gill: 'rgba(110,55,20,0.5)', silverZone: 'rgba(120,138,155,0.55)', edge: 'rgba(80,45,20,0.5)' },
+  fin: { fill: 'rgba(236,230,220,1)', ray: 'rgba(180,158,135,0.5)', light: 'rgba(255,255,255,0.6)', spark: 'rgba(255,255,255,0.85)', tint: 'rgba(215,165,120,0.22)' },
+  eye: { iris: '#d3873a', ring: '#6f3a14', pupil: '#0a0705' }, rim: 'rgba(60,40,20,0.4)', glint: '#fff8ea', bloom: 'rgba(255,245,230,1)' };
+PALETTES.midnight = { white: ['#ffffff', '#f3f5f8', '#e6eaef'], silver: ['#aebbca', '#98a7b8', '#c4cfda', '#8494a6', '#d3dbe4', '#71829a'], pewter: ['#6f7d8e', '#5f6d7e', '#8593a4'],
+  gold: ['#dba041', '#eebb5a', '#c68a2c', '#f6cd74', '#b47826', '#e0ab4c', '#ffe08f'], copper: ['#c37c36', '#d8934f', '#a3601f', '#e6a763'],
+  skin: { cap: '#8f4a20', back: '#8e6236', mid: '#ad7d4c', low: '#c09262', belly: '#c9a678', head: '#b06d2e', headHi: '#cf9a62', gill: 'rgba(60,30,10,0.55)', silverZone: 'rgba(95,112,130,0.55)', edge: 'rgba(20,12,5,0.6)' },
+  fin: { fill: 'rgba(225,222,215,1)', ray: 'rgba(160,140,120,0.5)', light: 'rgba(255,255,255,0.55)', spark: 'rgba(255,255,255,0.85)', tint: 'rgba(200,150,110,0.2)' },
+  eye: { iris: '#d3873a', ring: '#5a2e0f', pupil: '#000000' }, rim: 'rgba(0,0,0,0.5)', glint: '#fff1cf', bloom: 'rgba(255,238,205,1)' };
+const BG = {
+  day: { top: '#aab4bb', bottom: '#8fa0ad', accent: '#7c8d9b', light: '#d8d1c2', warm: '#c9c0ae', vignette: 0.28, strokes: 700, vertical: true, noise: 0.05 },
+  dusk: { top: '#6f8397', bottom: '#4b6076', accent: '#3f5568', light: '#9aa9b8', warm: '#8f8c84', vignette: 0.42, strokes: 600, vertical: true, noise: 0.06 },
+  midnight: { top: '#141f2b', bottom: '#060b10', accent: '#1c2c3c', light: '#2b3f52', warm: '#2a2f36', vignette: 0.6, strokes: 500, vertical: true, noise: 0.08 },
+};
 
-      main {
-        position: relative;
-        display: grid;
-        min-height: 16rem;
-        place-items: center;
-      }
+/* ---------- goldfish geometry (u: 0 snout → 1 peduncle; v in body heights) ---------- */
+const TOP = [[0.00, 0.02], [0.04, -0.12], [0.10, -0.25], [0.18, -0.36], [0.28, -0.44], [0.40, -0.49], [0.54, -0.50], [0.68, -0.45], [0.82, -0.36], [0.94, -0.26], [1.02, -0.20], [1.08, -0.18]];
+const BOT = [[0.00, 0.02], [0.04, 0.15], [0.10, 0.28], [0.18, 0.39], [0.28, 0.47], [0.40, 0.51], [0.54, 0.52], [0.68, 0.47], [0.82, 0.38], [0.94, 0.27], [1.02, 0.20], [1.08, 0.18]];
+const TAIL_UP = [[1.02, -0.16], [1.15, -0.30], [1.35, -0.52], [1.60, -0.72], [1.85, -0.78], [1.97, -0.60], [1.92, -0.36], [1.76, -0.16], [1.50, -0.02], [1.20, 0.00]];
+const TAIL_LO = [[1.02, 0.16], [1.15, 0.32], [1.35, 0.56], [1.60, 0.78], [1.88, 0.88], [2.02, 0.70], [1.97, 0.42], [1.80, 0.20], [1.55, 0.06], [1.20, 0.00]];
+const TAIL_MID = [[1.02, -0.08], [1.30, -0.14], [1.66, -0.26], [1.78, 0.06], [1.45, 0.18], [1.02, 0.08]];
+const DORSAL = [[0.30, -0.47], [0.42, -0.80], [0.58, -0.98], [0.78, -0.86], [0.92, -0.50], [0.86, -0.26]];
+const PECT = [[0.26, 0.14], [0.50, 0.24], [0.70, 0.52], [0.64, 0.70], [0.40, 0.54], [0.24, 0.30]];
+const PELV = [[0.50, 0.46], [0.60, 0.72], [0.76, 0.82], [0.72, 0.50]];
+const ANAL = [[0.78, 0.35], [0.90, 0.64], [1.06, 0.56], [1.00, 0.22]];
+function profileFn(pts) { return u => { if (u <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (u <= pts[i][0]) { const t = (u - pts[i - 1][0]) / (pts[i][0] - pts[i - 1][0]); return lerp(pts[i - 1][1], pts[i][1], t); } return pts[pts.length - 1][1]; }; }
+const topF = profileFn(TOP), botF = profileFn(BOT);
+function smoothClosed(pts) { const p = new Path2D(); const n = pts.length, mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; let m = mid(pts[n - 1], pts[0]); p.moveTo(m[0], m[1]); for (let i = 0; i < n; i++) { const c = pts[i], m2 = mid(c, pts[(i + 1) % n]); p.quadraticCurveTo(c[0], c[1], m2[0], m2[1]); } p.closePath(); return p; }
 
-      canvas {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-      }
+let stampCache = null;
+function highlightStamp() { if (stampCache) return stampCache; const n = 64, c = document.createElement('canvas'); c.width = c.height = n; const x = c.getContext('2d'); const g = x.createRadialGradient(n * 0.38, n * 0.36, 0, n / 2, n / 2, n / 2); g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.35, 'rgba(255,255,255,0.35)'); g.addColorStop(0.7, 'rgba(255,255,255,0.0)'); g.addColorStop(1, 'rgba(0,0,0,0.25)'); x.fillStyle = g; x.beginPath(); x.arc(n / 2, n / 2, n / 2, 0, TAU); x.fill(); return stampCache = c; }
 
-      .status {
-        position: relative;
-        margin: 0;
-        color: #d8d5cc;
-        font-size: clamp(0.85rem, 1.5vw, 1rem);
-        letter-spacing: 0.08em;
-      }
+/* ---------- sprite ---------- */
+function makeSprite(opts) {
+  const o = Object.assign({ L: 300, ss: 2, seed: 1, palette: 'day', seqDiv: 56, coverage: 1, hk: 1, tailK: 1, finK: 1, warm: 0, bright: 1 }, opts || {});
+  const P = typeof o.palette === 'string' ? PALETTES[o.palette] : o.palette;
+  const rnd = mulberry32(o.seed * 7919 + 23), noise = makeNoise(o.seed * 41 + 3), stamp = highlightStamp();
+  const ss = o.ss, Lb = o.L * ss, H = Lb * 0.60 * o.hk, Lt = Lb * 1.06 * o.tailK;
+  const padX = Lb * 0.04, padY = H * 0.06, top = 1.0 * H * o.finK, bot = 0.86 * H * o.finK;
+  const w = Math.ceil(padX * 2 + Lt + Lb), h = Math.ceil(padY * 2 + top + bot), cy = padY + top;
+  const X = u => padX + Lt + (1 - u) * Lb, Y = v => cy + v * H;
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d');
+  const body = smoothClosed(TOP.concat(BOT.slice().reverse()).map(q => [X(q[0]), Y(q[1])]));
 
-      @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-          scroll-behavior: auto !important;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <header aria-label="Project identity">
-      <span>ks·design lab</span>
-      <span>fathom</span>
-    </header>
-    <main>
-      <canvas id="stage" aria-hidden="true"></canvas>
-      <p class="status" role="status">Art study in development</p>
-    </main>
-    <footer>
-      <span>Experimental web art</span>
-      <span>2026</span>
-    </footer>
-    <script>
-      const canvas = document.querySelector("#stage");
-      const context = canvas.getContext("2d");
-      let resizeFrame = 0;
+  /* veil fin: translucent gradient fill fading to the tip, fine rays, sparkle specks, soft edge */
+  function fin(poly, k, alpha, opts2) {
+    opts2 = opts2 || {}; const raw = poly.map(q => [X(q[0] > 1 ? 1 + (q[0] - 1) * o.tailK : q[0]), Y(q[1] * (q[0] > 1 ? o.tailK : o.finK))]);
+    const a = raw[0], b = raw[raw.length - 1]; const base = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const pts = []; for (let i = 0; i < raw.length; i++) { const p = raw[i], q = raw[(i + 1) % raw.length]; pts.push(p); if (i === raw.length - 1) break; const far = Math.min(Math.hypot(p[0] - base[0], p[1] - base[1]), Math.hypot(q[0] - base[0], q[1] - base[1])) / H;
+      const sub = far > 0.35 ? 3 : 0; for (let k = 1; k <= sub; k++) { const t = k / (sub + 1); const nx = -(q[1] - p[1]), ny = q[0] - p[0], nl = Math.hypot(nx, ny) || 1; const d = (rnd() - 0.5) * H * 0.07 * far; pts.push([lerp(p[0], q[0], t) + nx / nl * d, lerp(p[1], q[1], t) + ny / nl * d]); } }
+    const path = smoothClosed(pts);
+    let far = base, fd = 0; for (const p of pts) { const d = Math.hypot(p[0] - base[0], p[1] - base[1]); if (d > fd) { fd = d; far = p; } }
+    ctx.save(); ctx.filter = `blur(${H * 0.014}px)`;
+    const g = ctx.createLinearGradient(base[0], base[1], far[0], far[1]); g.addColorStop(0, P.fin.fill.replace('1)', `${0.42 * alpha})`)); g.addColorStop(0.5, P.fin.fill.replace('1)', `${0.18 * alpha})`)); g.addColorStop(1, P.fin.fill.replace('1)', `${0.05 * alpha})`));
+    ctx.fillStyle = g; ctx.fill(path);
+    ctx.fillStyle = P.fin.tint; ctx.globalAlpha = 0.6; ctx.fill(path); ctx.globalAlpha = 1;
+    ctx.filter = `blur(${H * 0.003}px)`; ctx.clip(path);
+    const seg = []; let total = 0; for (let i = 0; i < pts.length - 1; i++) { const d = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); seg.push(d); total += d; }
+    const along = f => { let d = f * total; for (let i = 0; i < seg.length; i++) { if (d <= seg[i] || i === seg.length - 1) { const t = seg[i] ? d / seg[i] : 0; return [lerp(pts[i][0], pts[i + 1][0], t), lerp(pts[i][1], pts[i + 1][1], t)]; } d -= seg[i]; } return b; };
+    const n = (opts2.rays || 22) * 1.6 | 0; ctx.lineCap = 'round';
+    for (let i = 1; i < n; i++) { const f = i / n, p0 = [lerp(a[0], b[0], 0.1 + 0.8 * f), lerp(a[1], b[1], 0.1 + 0.8 * f)], p1 = along(f); const cxp = (p0[0] + p1[0]) / 2 + (rnd() - 0.5) * H * 0.06, cyp = (p0[1] + p1[1]) / 2 + (rnd() - 0.5) * H * 0.06;
+      ctx.globalAlpha = alpha * (0.2 + 0.5 * rnd()); ctx.strokeStyle = rnd() < 0.45 ? P.fin.ray : P.fin.light; ctx.lineWidth = (0.4 + 1.0 * rnd()) * ss; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.quadraticCurveTo(cxp, cyp, p1[0], p1[1]); ctx.stroke(); }
+    ctx.filter = 'none'; const specks = opts2.specks || 40;
+    for (let i = 0; i < specks; i++) { const f = rnd(), p1 = along(rnd()), t = 0.25 + 0.7 * rnd(); const x = lerp(base[0], p1[0], t) + (rnd() - 0.5) * H * 0.05, y = lerp(base[1], p1[1], t) + (rnd() - 0.5) * H * 0.05; const r = (0.6 + 1.6 * rnd()) * ss; ctx.globalAlpha = alpha * (0.35 + 0.6 * rnd()) * o.bright; ctx.fillStyle = P.fin.spark; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
+  fin(TAIL_LO, 1, 0.95, { rays: 26, specks: 70 }); fin(TAIL_UP, 1, 0.95, { rays: 26, specks: 70 }); fin(TAIL_MID, 1, 0.7, { rays: 14, specks: 20 });
+  fin(DORSAL, 1, 0.9, { rays: 24, specks: 50 }); fin(PELV, 1, 0.8, { rays: 12, specks: 18 }); fin(ANAL, 1, 0.8, { rays: 12, specks: 18 });
 
-      function resizeStage() {
-        const ratio = Math.min(window.devicePixelRatio || 1, 2);
-        const bounds = canvas.getBoundingClientRect();
-        canvas.width = Math.max(1, Math.round(bounds.width * ratio));
-        canvas.height = Math.max(1, Math.round(bounds.height * ratio));
-        context.setTransform(ratio, 0, 0, ratio, 0, 0);
-        context.clearRect(0, 0, bounds.width, bounds.height);
-        document.documentElement.dataset.ready = "true";
-      }
+  /* soft halo around the body */
+  ctx.save(); ctx.filter = `blur(${H * 0.06}px)`; ctx.globalAlpha = 0.18 * o.bright; ctx.fillStyle = P.bloom.replace('1)', '1)'); ctx.fill(body); ctx.restore();
+  /* body underpainting */
+  ctx.save(); ctx.clip(body);
+  const g = ctx.createLinearGradient(0, Y(-0.5), 0, Y(0.5)); g.addColorStop(0, P.skin.back); g.addColorStop(0.35, P.skin.mid); g.addColorStop(0.7, P.skin.low); g.addColorStop(1, P.skin.belly); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  let rg = ctx.createRadialGradient(X(0.55), Y(0.02), 0, X(0.55), Y(0.02), H * 0.5); rg.addColorStop(0, P.skin.silverZone); rg.addColorStop(1, 'rgba(150,165,180,0)'); ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
+  /* head: orange wedge, darker cap on top, light cheek and throat, rounded gill plate */
+  ctx.save(); const headClip = new Path2D(); headClip.moveTo(X(-0.02), Y(-0.6)); headClip.lineTo(X(0.34), Y(-0.6)); headClip.quadraticCurveTo(X(0.36), Y(0.0), X(0.34), Y(0.6)); headClip.lineTo(X(-0.02), Y(0.6)); headClip.closePath(); ctx.clip(headClip);
+  const hg = ctx.createLinearGradient(0, Y(-0.5), 0, Y(0.5)); hg.addColorStop(0, P.skin.cap || '#d4733a'); hg.addColorStop(0.45, P.skin.head); hg.addColorStop(1, P.skin.headHi); ctx.fillStyle = hg; ctx.globalAlpha = 0.92; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1;
+  rg = ctx.createRadialGradient(X(0.14), Y(0.22), 0, X(0.14), Y(0.22), H * 0.3); rg.addColorStop(0, 'rgba(255,225,195,0.75)'); rg.addColorStop(1, 'rgba(255,225,195,0)'); ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
+  rg = ctx.createRadialGradient(X(0.16), Y(-0.3), 0, X(0.16), Y(-0.3), H * 0.28); rg.addColorStop(0, 'rgba(160,60,25,0.35)'); rg.addColorStop(1, 'rgba(160,60,25,0)'); ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+  /* gill plate (operculum) */
+  ctx.save(); ctx.filter = `blur(${H * 0.01}px)`; ctx.beginPath(); ctx.moveTo(X(0.21), Y(-0.37)); ctx.quadraticCurveTo(X(0.35), Y(0.0), X(0.22), Y(0.40)); ctx.lineWidth = H * 0.05; ctx.strokeStyle = 'rgba(120,55,15,0.35)'; ctx.stroke(); ctx.restore();
+  ctx.beginPath(); ctx.moveTo(X(0.20), Y(-0.36)); ctx.quadraticCurveTo(X(0.335), Y(0.0), X(0.21), Y(0.39)); ctx.lineWidth = H * 0.016; ctx.strokeStyle = 'rgba(255,235,210,0.65)'; ctx.stroke();
+  rg = ctx.createRadialGradient(X(0.26), Y(0.02), 0, X(0.26), Y(0.02), H * 0.28); rg.addColorStop(0, 'rgba(255,220,185,0.35)'); rg.addColorStop(1, 'rgba(255,220,185,0)'); ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
+  for (let i = 0; i < 90; i++) { const u = rnd() * 1.02, t = rnd(); const v = lerp(topF(u), botF(u), t); const len = Lb * (0.04 + 0.16 * rnd()), th = H * (0.02 + 0.05 * rnd()); ctx.save(); ctx.translate(X(u), Y(v)); ctx.rotate((rnd() - 0.5) * 0.5); ctx.globalAlpha = 0.1 + 0.25 * rnd(); ctx.fillStyle = t > 0.6 ? pick(rnd, ['#f6dfc0', '#fbeedc', '#e9b98a']) : pick(rnd, ['#c9d2db', '#b48a5c', '#e7c9a3', '#9fabb8']); ctx.fillRect(-len / 2, -th / 2, len, th); ctx.restore(); }
+  ctx.save(); ctx.filter = `blur(${H * 0.035}px)`; ctx.lineWidth = H * 0.14; ctx.strokeStyle = P.skin.edge; ctx.stroke(body); ctx.restore();
+  /* mouth at the pointed tip */
+  ctx.beginPath(); ctx.moveTo(X(0.0), Y(0.02)); ctx.quadraticCurveTo(X(0.05), Y(0.03), X(0.09), Y(0.01)); ctx.lineWidth = H * 0.016; ctx.strokeStyle = 'rgba(120,50,20,0.55)'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(0.005), Y(0.035)); ctx.quadraticCurveTo(X(0.05), Y(0.05), X(0.085), Y(0.03)); ctx.lineWidth = H * 0.012; ctx.strokeStyle = 'rgba(255,215,190,0.55)'; ctx.stroke();
+  ctx.restore();
 
-      window.addEventListener("resize", () => {
-        cancelAnimationFrame(resizeFrame);
-        resizeFrame = requestAnimationFrame(resizeStage);
-      }, { passive: true });
-      resizeStage();
-    </script>
-  </body>
+  /* sequins */
+  const s = Lb / o.seqDiv, tiles = []; const bias = (rnd() - 0.5) * 0.4 + o.warm * 0.3;
+  ctx.save(); ctx.clip(body);
+  const nRows = Math.round(H / (s * 0.82)), du = s * 0.86 / Lb;
+  for (let r = 0; r < nRows; r++) { const t = (r + 0.5) / nRows;
+    for (let u = 1.02 - (r % 2) * du * 0.5; u > -0.02; u -= du) {
+      const ju = u + (rnd() - 0.5) * du * 0.4, jt = t + (rnd() - 0.5) * 0.4 / nRows; const v = lerp(topF(ju), botF(ju), jt) * 0.985; const x = X(ju), y = Y(v);
+      if (!ctx.isPointInPath(body, x, y)) continue;
+      let p = 1; if (ju < 0.22) p *= 0.03; else if (ju < 0.28) p *= 0.45; else if (ju < 0.34) p *= 0.85; if (ju > 0.94) p *= 0.6; if (jt > 0.9) p *= 0.6;
+      p *= (0.8 + 0.3 * noise(ju * 6 + 1, jt * 5 + 2)) * o.coverage; if (rnd() > p) continue;
+      /* colour zones: blaze of white on the upper back, silver/pewter mid-body, gold/copper low & near head */
+      const blaze = smooth(0.38, 0.0, jt) * smooth(0.26, 0.46, ju) * smooth(0.88, 0.62, ju);
+      const n2 = noise(ju * 3 + 5, jt * 2.5 + 9) - 0.5 + bias; let col; const q = rnd();
+      if (q < blaze * 0.85 * o.bright || rnd() < 0.07 * o.bright) col = pick(rnd, P.white);
+      else if (jt > 0.62 || ju < 0.36 || n2 > 0.28) col = rnd() < 0.7 ? pick(rnd, P.gold) : pick(rnd, P.copper);
+      else if (n2 < -0.12) col = rnd() < 0.7 ? pick(rnd, P.silver) : pick(rnd, P.pewter);
+      else col = rnd() < 0.4 ? pick(rnd, P.silver) : (rnd() < 0.45 ? pick(rnd, P.gold) : pick(rnd, P.white));
+      col = vary(col, (rnd() - 0.5) * 0.2);
+      const rr = s * (0.42 + 0.22 * rnd()) * (rnd() < 0.1 ? 1.4 : 1);
+      ctx.fillStyle = 'rgba(60,35,10,0.28)'; ctx.beginPath(); ctx.arc(x + rr * 0.18, y + rr * 0.28, rr, 0, TAU); ctx.fill();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 0.5 + 0.5 * rnd(); ctx.drawImage(stamp, x - rr, y - rr, rr * 2, rr * 2); ctx.globalAlpha = 1;
+      ctx.strokeStyle = P.rim; ctx.lineWidth = 0.5 * ss; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
+      if (rnd() < 0.22 + blaze * 0.5) { ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.arc(x - rr * 0.3, y - rr * 0.3, rr * 0.28, 0, TAU); ctx.fill(); }
+      tiles.push({ x: x - w / 2, y: y - h / 2, r: rr, blaze });
+    } }
+  /* bloom over the blaze */
+  ctx.globalCompositeOperation = 'screen'; rg = ctx.createRadialGradient(X(0.5), Y(-0.28), 0, X(0.5), Y(-0.28), H * 0.5); rg.addColorStop(0, P.bloom.replace('1)', `${0.55 * o.bright})`)); rg.addColorStop(1, P.bloom.replace('1)', '0)')); ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = 'source-over';
+  const vg = ctx.createLinearGradient(0, Y(-0.5), 0, Y(0.5)); vg.addColorStop(0, 'rgba(255,255,255,0.06)'); vg.addColorStop(0.55, 'rgba(255,255,255,0)'); vg.addColorStop(1, 'rgba(60,35,10,0.18)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+
+  fin(PECT, 1, 0.85, { rays: 16, specks: 30 });
+  const ex = X(0.15), ey = Y(-0.12), er = H * 0.105;
+  let sh = ctx.createRadialGradient(ex, ey, er * 0.9, ex, ey, er * 2.0); sh.addColorStop(0, 'rgba(120,60,20,0.4)'); sh.addColorStop(1, 'rgba(120,60,20,0)'); ctx.fillStyle = sh; ctx.beginPath(); ctx.arc(ex, ey, er * 2.0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(ex, ey, er * 1.22, 0, TAU); ctx.fillStyle = P.eye.ring; ctx.fill();
+  const ig = ctx.createRadialGradient(ex - er * 0.2, ey - er * 0.2, 0, ex, ey, er * 1.05); ig.addColorStop(0, '#f4b25a'); ig.addColorStop(1, P.eye.iris); ctx.beginPath(); ctx.arc(ex, ey, er * 1.05, 0, TAU); ctx.fillStyle = ig; ctx.fill();
+  ctx.beginPath(); ctx.arc(ex, ey, er * 0.62, 0, TAU); ctx.fillStyle = P.eye.pupil; ctx.fill();
+  ctx.beginPath(); ctx.arc(ex - er * 0.28, ey - er * 0.3, er * 0.22, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(ex + er * 0.3, ey + er * 0.32, er * 0.1, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
+  return { canvas: c, w, h, ss, L: o.L, hpx: H, cw: w / ss, ch: h / ss, tiles, palette: o.palette, seed: o.seed, tailPx: Lt + padX };
+}
+function blurSprite(sp, px) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.filter = `blur(${px * sp.ss}px)`; x.drawImage(sp.canvas, 0, 0); return Object.assign({}, sp, { canvas: c }); }
+function fogSprite(sp, color, amt) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = amt; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); return Object.assign({}, sp, { canvas: c }); }
+function glowSprite(sp, color, px) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); const c2 = document.createElement('canvas'); c2.width = sp.w; c2.height = sp.h; const x2 = c2.getContext('2d'); x2.filter = `blur(${px * sp.ss}px)`; x2.drawImage(c, 0, 0); return Object.assign({}, sp, { canvas: c2 }); }
+
+/* ---------- drawing: veil tail waves more, slower ---------- */
+function wiggleOff(sp, t, phase, wig) { return wig * sp.hpx * 0.075 * Math.pow(t, 1.6) * Math.sin(phase - t * 2.8); }
+function drawFish(ctx, sp, x, y, o) {
+  o = o || {}; const angle = o.angle || 0, scale = o.scale || 1, phase = o.phase || 0, wig = o.wig == null ? 1 : o.wig, alpha = o.alpha == null ? 1 : o.alpha, slices = o.slices || 18;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(angle); if (o.flip) ctx.scale(-1, 1); const k = scale / sp.ss; ctx.scale(k, k); if (alpha !== 1) ctx.globalAlpha *= alpha;
+  const W = sp.w, Hh = sp.h, sw = W / slices;
+  for (let i = 0; i < slices; i++) { const sx = i * sw, t = 1 - (sx + sw / 2) / W; ctx.drawImage(sp.canvas, sx, 0, sw + 1, Hh, -W / 2 + sx, -Hh / 2 + wiggleOff(sp, t, phase, wig), sw + 1, Hh); }
+  if (o.glints && o.glints.length) { ctx.globalCompositeOperation = 'lighter';
+    for (const gl of o.glints) { const tl = sp.tiles[gl.i]; if (!tl) continue; const a = Math.sin(Math.PI * gl.t / gl.life) * gl.k; if (a <= 0.01) continue; const t = 1 - (tl.x + W / 2) / W, off = wiggleOff(sp, t, phase, wig);
+      ctx.save(); ctx.translate(tl.x, tl.y + off); ctx.globalAlpha = a * 0.85 * alpha; ctx.fillStyle = gl.color; ctx.beginPath(); ctx.arc(0, 0, tl.r * 1.25, 0, TAU); ctx.fill();
+      if (gl.star) { const r = tl.r * (2.2 + 3 * a); ctx.rotate(gl.rot); ctx.globalAlpha = a * 0.75 * alpha; ctx.lineWidth = sp.ss * 0.8; ctx.strokeStyle = gl.color; ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.moveTo(0, -r * 0.7); ctx.lineTo(0, r * 0.7); ctx.stroke(); }
+      ctx.restore(); } }
+  ctx.restore();
+}
+function tickGlints(f, dt, rate, style) { style = style || {}; if (!f.glints) f.glints = []; const tiles = f.sp.tiles;
+  if (tiles.length && Math.random() < rate * dt) f.glints.push({ i: (Math.random() * tiles.length) | 0, t: 0, life: (style.life || 0.8) * (0.6 + 0.8 * Math.random()), k: (style.intensity || 1) * (0.5 + 0.5 * Math.random()), star: Math.random() < (style.star == null ? 0.3 : style.star), rot: Math.random() * 3, color: style.color || '#ffffff' });
+  for (const g of f.glints) g.t += dt; if (f.glints.length) f.glints = f.glints.filter(g => g.t < g.life); }
+
+/* ---------- background (vertical brush marks like the reference) ---------- */
+function noiseTile(rnd) { const n = 128, c = document.createElement('canvas'); c.width = c.height = n; const x = c.getContext('2d'), img = x.createImageData(n, n), d = img.data; for (let i = 0; i < d.length; i += 4) { const v = 110 + rnd() * 90; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; } x.putImageData(img, 0, 0); return c; }
+function paintBackground(w, h, opts, dpr) {
+  const o = Object.assign({ seed: 5, noise: 0.06 }, typeof opts === 'string' ? BG[opts] : (opts || {})); dpr = dpr || 1;
+  const c = document.createElement('canvas'); c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr); const ctx = c.getContext('2d'); ctx.scale(dpr, dpr); const rnd = mulberry32(o.seed);
+  const g = ctx.createLinearGradient(0, 0, w * 0.1, h); g.addColorStop(0, o.top); g.addColorStop(1, o.bottom); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  const cols = [o.top, o.bottom, o.accent, o.light, o.light, o.warm], S = Math.max(w, h);
+  for (let i = 0; i < o.strokes; i++) { const x = rnd() * w, y = rnd() * h; const vert = o.vertical ? rnd() < 0.8 : rnd() < 0.12; const len = S * (0.05 + 0.3 * rnd()), th = S * (0.003 + 0.02 * rnd()); ctx.save(); ctx.translate(x, y); ctx.rotate((vert ? Math.PI / 2 : 0) + (rnd() - 0.5) * 0.12); ctx.globalAlpha = 0.04 + 0.12 * rnd(); ctx.fillStyle = cols[(rnd() * cols.length) | 0]; ctx.fillRect(-len / 2, -th / 2, len, th); ctx.restore(); }
+  if (o.noise > 0) { ctx.save(); ctx.globalAlpha = o.noise; ctx.globalCompositeOperation = 'overlay'; ctx.fillStyle = ctx.createPattern(noiseTile(rnd), 'repeat'); ctx.fillRect(0, 0, w, h); ctx.restore(); }
+  if (o.vignette > 0) { const vg = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, S * 0.75); vg.addColorStop(0, 'rgba(10,20,30,0)'); vg.addColorStop(1, `rgba(10,20,30,${o.vignette})`); ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h); }
+  return c;
+}
+function causticLayer(w, h, seed, tint) { const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d'), rnd = mulberry32(seed); tint = tint || '180,215,255'; for (let i = 0; i < 90; i++) { const x = rnd() * w, y = rnd() * h, r = Math.min(w, h) * (0.04 + 0.12 * rnd()); const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${tint},${0.05 + 0.08 * rnd()})`); g.addColorStop(1, `rgba(${tint},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); } return c; }
+function rayLayer(w, h, seed, strength) { const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d'), rnd = mulberry32(seed); strength = strength == null ? 1 : strength; const ox = w * (0.15 + 0.3 * rnd()), oy = -h * 0.35, len = h * 1.9; for (let i = 0; i < 16; i++) { const a = Math.PI / 2 + (rnd() - 0.4) * 0.7, wd = 0.02 + 0.06 * rnd(); const g = ctx.createLinearGradient(ox, oy, ox + Math.cos(a) * len, oy + Math.sin(a) * len); g.addColorStop(0, `rgba(255,250,235,${(0.16 + 0.14 * rnd()) * strength})`); g.addColorStop(0.55, `rgba(255,250,235,${0.05 * strength})`); g.addColorStop(1, 'rgba(255,250,235,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + Math.cos(a - wd) * len, oy + Math.sin(a - wd) * len); ctx.lineTo(ox + Math.cos(a + wd) * len, oy + Math.sin(a + wd) * len); ctx.closePath(); ctx.fill(); } return c; }
+
+/* ---------- time of day ---------- */
+function moodForDate(d) { d = d || new Date(); const h = d.getHours() + d.getMinutes() / 60; if (h >= 7 && h < 16.5) return 'day'; if ((h >= 16.5 && h < 20.5) || (h >= 5.5 && h < 7)) return 'dusk'; return 'midnight'; }
+const MOOD_LABEL = { day: 'день', dusk: 'сумерки', midnight: 'полночь' };
+/* per-mood effect strengths: multiplied into scene effects */
+const MOOD_FX = { day: { glow: 0, caustics: 0.3, rays: 0.55, motes: 0.5, sweep: 1, glintK: 1 }, dusk: { glow: 0.35, caustics: 0.6, rays: 0.7, motes: 0.8, sweep: 0.6, glintK: 1.1 }, midnight: { glow: 1, caustics: 1, rays: 0.35, motes: 1, sweep: 0.3, glintK: 1.4 } };
+
+/* ---------- runner ---------- */
+function run(canvas, hooks) {
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const S = { canvas, ctx, w: 0, h: 0, dpr: 1, t: 0, running: true, visible: true, inView: true, pointer: { x: -1e5, y: -1e5, down: false, active: false }, min: 0 };
+  function fit() { S.dpr = Math.min(window.devicePixelRatio || 1, 2); const r = canvas.getBoundingClientRect(); S.w = Math.max(2, Math.round(r.width)); S.h = Math.max(2, Math.round(r.height)); S.min = Math.min(S.w, S.h); canvas.width = Math.round(S.w * S.dpr); canvas.height = Math.round(S.h * S.dpr); }
+  let ready = false; function ensure() { fit(); if (!ready && S.w > 2 && S.h > 2) { ready = true; hooks.setup && hooks.setup(S); } return ready; } ensure();
+  let last = performance.now(), raf = 0;
+  function frame(now) { raf = 0; if (!S.running || !S.visible) return; if (!ready && !ensure()) { last = now; raf = requestAnimationFrame(frame); return; } const dt = Math.min(0.05, (now - last) / 1000); last = now; S.t += dt; hooks.update && hooks.update(S, dt); ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); hooks.draw(S, ctx, dt); raf = requestAnimationFrame(frame); }
+  function renderOnce() { if (!ensure()) return; hooks.update && hooks.update(S, 0); ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); hooks.draw(S, ctx, 0); }
+  function start() { if (hooks.static) { renderOnce(); return; } if (!raf && S.running && S.visible) { last = performance.now(); raf = requestAnimationFrame(frame); } }
+  let rt = 0; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!ready) { ensure(); return; } fit(); hooks.resize && hooks.resize(S); }, 80); });
+  document.addEventListener('visibilitychange', () => { S.visible = !document.hidden && S.inView; start(); });
+  if ('IntersectionObserver' in window) new IntersectionObserver(e => { S.inView = e[0].isIntersecting; S.visible = S.inView && !document.hidden; start(); }).observe(canvas);
+  canvas.addEventListener('pointermove', e => { const r = canvas.getBoundingClientRect(); S.pointer.x = e.clientX - r.left; S.pointer.y = e.clientY - r.top; S.pointer.active = true; });
+  canvas.addEventListener('pointerdown', e => { const r = canvas.getBoundingClientRect(); S.pointer.x = e.clientX - r.left; S.pointer.y = e.clientY - r.top; S.pointer.down = true; S.pointer.active = true; hooks.tap && hooks.tap(S, S.pointer.x, S.pointer.y); });
+  canvas.addEventListener('pointerup', () => { S.pointer.down = false; });
+  canvas.addEventListener('pointerleave', () => { S.pointer.active = false; S.pointer.down = false; S.pointer.x = -1e5; S.pointer.y = -1e5; });
+  S.start = start; S.render = renderOnce; start(); return S;
+}
+
+/* ---------- motion ---------- */
+const MOTION = {
+  drift(f, S, dt) { f.phase += f.wigRate * dt * (0.9 + 0.2 * Math.sin(f.burst)); f.bob += f.bobRate * dt; f.burst += 0.3 * dt; const sp = f.speed * (1 + 0.14 * Math.sin(f.burst)); f.x += sp * dt; f.y += Math.sin(f.bob) * f.L * 0.06 * dt; f.angle = Math.cos(f.bob) * 0.035; if (f.x - f.L * 1.0 > S.w) { f.x = -f.L * 1.0; f.y = S.h * (0.06 + 0.88 * Math.random()); } },
+  lanes(f, S, dt) { f.phase += f.wigRate * dt * (0.9 + 0.2 * Math.sin(f.burst)); f.bob += f.bobRate * dt; f.burst += 0.3 * dt; const sp = f.speed * (1 + 0.14 * Math.sin(f.burst)); f.x += sp * dt; f.y = f.laneY + Math.sin(f.bob) * f.L * 0.07; f.angle = Math.cos(f.bob) * 0.03; if (f.x - f.L * 1.0 > S.w) { f.x = -f.L * 1.0; f.laneY = clamp(f.laneY + (Math.random() - 0.5) * S.h * 0.1, S.h * 0.05, S.h * 0.95); } },
+};
+
+/* ---------- scene with moods ---------- */
+function buildSprites(S, L, cfg, idx, mood) {
+  const rnd = mulberry32((cfg.seed || 1) * 131 + idx * 17 + 1000); const n = L.sprites || 4; const out = [];
+  for (let i = 0; i < n; i++) { const hk = 0.92 + 0.16 * rnd(), tailK = (L.tailK || cfg.tailK || 1) * (0.9 + 0.2 * rnd());
+    let sp = makeSprite({ L: L.spriteL || Math.max(100, Math.min(320, Math.round(S.min * L.max * 1.1))), seed: (cfg.seed || 1) * 100 + idx * 10 + i, palette: mood, seqDiv: L.seqDiv || cfg.seqDiv || 56, coverage: L.coverage || cfg.coverage || 1, hk, tailK, finK: L.finK || cfg.finK || 1, warm: cfg.warm || 0, bright: cfg.bright == null ? 1 : cfg.bright });
+    const avgScale = S.min * (L.min + L.max) / 2 / sp.L; if (L.blur) sp = blurSprite(sp, L.blur / avgScale); if (L.fog) sp = fogSprite(sp, BG[mood].top, L.fog); out.push(sp); }
+  return out;
+}
+function makeLayer(S, L, cfg, idx, mood) {
+  const rnd = mulberry32((cfg.seed || 1) * 131 + idx * 17); const m = S.min; const sprites = buildSprites(S, L, cfg, idx, mood); const n = sprites.length;
+  const fish = []; const lanes = L.lanes || cfg.lanes || Math.max(3, Math.round(L.count / 3)); const motion = L.motion || cfg.motion || 'drift';
+  for (let i = 0; i < L.count; i++) { const Lf = m * lerp(L.min, L.max, rnd()); const spi = i % n; const lane = i % lanes; const laneY = S.h * (0.06 + 0.88 * (lane + 0.5) / lanes) + (rnd() - 0.5) * S.h * 0.5 / lanes;
+    const scatter = motion === 'boids' || motion === 'follow' || motion === 'rise';
+    fish.push({ x: scatter ? S.w * (0.05 + 0.9 * rnd()) : (i / L.count) * (S.w + Lf * 2) - Lf + (rnd() - 0.5) * S.w / L.count, y: motion === 'rise' ? rnd() * (S.h + Lf) - Lf / 2 : laneY, laneY, L: Lf, spi, sp: sprites[spi], scale: Lf / sprites[spi].L, phase: rnd() * TAU, wigRate: (L.wigRate || cfg.wigRate || 3.2) * (0.85 + 0.3 * rnd()),
+      speed: Lf * lerp(L.speed ? L.speed[0] : 0.12, L.speed ? L.speed[1] : 0.2, rnd()) * (cfg.speedK || 1), bob: rnd() * TAU, bobRate: 0.3 + 0.4 * rnd(), r: rnd(), r2: rnd(), angle: 0, flip: false, alpha: L.alpha == null ? 1 : L.alpha, vx: 0, vy: 0, face: 1, burst: rnd() * TAU, glints: [] }); }
+  fish.sort((a, b) => a.L - b.L); return { cfg: L, fish, sprites, idx };
+}
+function scene(canvas, cfg) {
+  const E = cfg.effects || {}; const st = { layers: [], px: 0, py: 0, caus: [], rays: [], motes: [], bg: {}, glows: new Map(), ctx: {}, mood: null, moodTo: null, fade: 1, blendAt: -1, blendBg: null, baseBg: null, auto: true, sprites2: null, bgTo: null, clockT: 0 };
+  const params = new URLSearchParams(location.search); const forced = params.get('mood'); if (forced && MOOD_LABEL[forced]) st.auto = false;
+  st.mood = forced && MOOD_LABEL[forced] ? forced : moodForDate();
+  function bgFor(S, mood) { if (!st.bg[mood]) st.bg[mood] = paintBackground(S.w, S.h, Object.assign({}, BG[mood], cfg.bg || {}), S.dpr); return st.bg[mood]; }
+  /* Glow canvases are keyed by sprite; rebuilding the map after every sprite swap evicts the previous mood's canvases. */
+  function glowsFor(l) { if (l.cfg.glow === false) return; for (const sp of l.sprites) if (!st.glows.has(sp)) st.glows.set(sp, glowSprite(sp, E.glowColor || 'rgba(255,200,110,1)', 9)); }
+  function rebuildGlows() { st.glows = new Map(); for (const l of st.layers) glowsFor(l); }
+  /* True cross-fade: a at (1-f) plus b at f, added in premultiplied space, is an exact per-pixel lerp when both
+     canvases share an alpha mask (the sprites of every mood are drawn from the same seeds). */
+  function lerpInto(dst, a, b, f) { const x = dst.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.clearRect(0, 0, dst.width, dst.height); x.globalAlpha = 1 - f; x.drawImage(a, 0, 0); x.globalCompositeOperation = 'lighter'; x.globalAlpha = f; x.drawImage(b, 0, 0, dst.width, dst.height); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; }
+  function updateBlend(S) { const f = st.fade; st.blendAt = f; const bgA = st.baseBg || bgFor(S, st.mood), bgB = bgFor(S, st.moodTo);
+    if (!st.blendBg || st.blendBg.width !== bgA.width || st.blendBg.height !== bgA.height) { st.blendBg = document.createElement('canvas'); st.blendBg.width = bgA.width; st.blendBg.height = bgA.height; }
+    lerpInto(st.blendBg, bgA, bgB, f);
+    for (const l of st.layers) { if (!l.blend || l.blend.length !== l.sprites.length) l.blend = l.sprites.map(() => ({ canvas: document.createElement('canvas') }));
+      l.sprites.forEach((sp, i) => { const c = l.blend[i].canvas; if (c.width !== sp.w || c.height !== sp.h) { c.width = sp.w; c.height = sp.h; } l.blend[i] = Object.assign({}, sp, { canvas: c }); lerpInto(c, sp.canvas, l.sprites2[i].canvas, f); }); } }
+  function setMood(S, mood, instant) { if (mood === st.mood && !st.moodTo) return;
+    if (instant) { st.mood = mood; st.moodTo = null; st.fade = 1; st.baseBg = null; st.blendBg = null; st.fxFrom = MOOD_FX[mood]; for (const l of st.layers) { l.sprites = buildSprites(S, l.cfg, cfg, l.idx, mood); l.sprites2 = null; l.blend = null; for (const f of l.fish) { f.sp = l.sprites[f.spi]; f.sp2 = null; } } rebuildGlows(); return; }
+    if (st.moodTo === mood) return;
+    if (st.moodTo) {
+      /* A fade is still running: what is on screen right now becomes the new base, so the next fade continues from it — no jump, no stacking. */
+      st.fxFrom = Object.assign({}, st.fx || MOOD_FX[st.mood]); updateBlend(S);
+      st.baseBg = st.blendBg; st.blendBg = null;
+      for (const l of st.layers) { l.sprites = l.blend; l.blend = null; for (const f of l.fish) f.sp = l.sprites[f.spi]; }
+      rebuildGlows();
+    }
+    st.moodTo = mood; st.fade = 0; for (const l of st.layers) { l.sprites2 = buildSprites(S, l.cfg, cfg, l.idx, mood); for (const f of l.fish) f.sp2 = l.sprites2[f.spi]; }
+    st.blendAt = -1; updateBlend(S); }
+  const scn = run(canvas, {
+    static: !!cfg.static,
+    setup(S) { S.ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); S.ctx.drawImage(bgFor(S, st.mood), 0, 0, S.w, S.h); st.layers = cfg.layers.map((L, i) => makeLayer(S, L, cfg, i, st.mood)); st.fxFrom = MOOD_FX[st.mood]; st.ctx.all = st.layers.flatMap(l => l.fish); bgFor(S, st.mood); rebuildGlows(); st.dims = { w: S.w, h: S.h, min: S.min };
+      if (E.caustics) st.caus = [causticLayer(S.w, S.h, 81, E.caustics.tint), causticLayer(S.w, S.h, 82, E.caustics.tint)];
+      if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)];
+      if (E.motes) st.motes = Array.from({ length: E.motes }, () => ({ x: Math.random() * S.w, y: Math.random() * S.h, s: 0.6 + Math.random() * 1.7, v: 3 + Math.random() * 9, p: Math.random() * 7, a: 0.12 + Math.random() * 0.3 }));
+      cfg.setup && cfg.setup(S, st); },
+    resize(S) { const d = st.dims || { w: S.w, h: S.h, min: S.min }; const kx = S.w / d.w, ky = S.h / d.h, km = S.min / d.min;
+      for (const l of st.layers) for (const f of l.fish) { f.x *= kx; f.y *= ky; f.laneY *= ky; f.L *= km; f.scale = f.L / f.sp.L; f.speed *= km; }
+      for (const m of st.motes) { m.x *= kx; m.y *= ky; }
+      st.dims = { w: S.w, h: S.h, min: S.min }; st.bg = {}; st.blendBg = null; st.blendAt = -1;
+      /* a captured base (retargeted fade) is rescaled rather than dropped, so the ground does not snap back mid-transition */
+      if (st.baseBg) { const c = document.createElement('canvas'); c.width = Math.ceil(S.w * S.dpr); c.height = Math.ceil(S.h * S.dpr); c.getContext('2d').drawImage(st.baseBg, 0, 0, c.width, c.height); st.baseBg = c; }
+      if (cfg.static) setTimeout(() => scn.render(), 0); bgFor(S, st.mood); if (st.moodTo) bgFor(S, st.moodTo); if (E.caustics) st.caus = [causticLayer(S.w, S.h, 81, E.caustics.tint), causticLayer(S.w, S.h, 82, E.caustics.tint)]; if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)]; },
+    update(S, dt) {
+      st.clockT += dt; if (st.auto && st.clockT > 20) { st.clockT = 0; const m = moodForDate(); if (m !== (st.moodTo || st.mood)) setMood(S, m); }
+      if (st.moodTo) { st.fade = Math.min(1, st.fade + dt / (cfg.fadeSeconds || 6)); if (st.fade >= 1) { st.mood = st.moodTo; st.moodTo = null; st.baseBg = null; st.blendBg = null; st.fxFrom = MOOD_FX[st.mood]; for (const l of st.layers) { l.sprites = l.sprites2; l.sprites2 = null; l.blend = null; for (const f of l.fish) { f.sp = f.sp2; f.sp2 = null; } } rebuildGlows(); } else if (st.fade - st.blendAt >= 0.02) updateBlend(S); }
+      const tx = S.pointer.active ? S.pointer.x / S.w - 0.5 : 0, ty = S.pointer.active ? S.pointer.y / S.h - 0.5 : 0; st.px += (tx - st.px) * 1.4 * dt; st.py += (ty - st.py) * 1.4 * dt;
+      const fxA = st.fxFrom || MOOD_FX[st.mood], fxB = MOOD_FX[st.moodTo || st.mood], mix = k => lerp(fxA[k], fxB[k], st.fade); st.fx = { glow: mix('glow'), caustics: mix('caustics'), rays: mix('rays'), motes: mix('motes'), sweep: mix('sweep'), glintK: mix('glintK') };
+      const P = PALETTES[st.moodTo || st.mood];
+      for (const l of st.layers) { const mode = MOTION[l.cfg.motion || cfg.motion || 'drift'];
+        for (const f of l.fish) { mode(f, S, dt, l.cfg, st.ctx, l.fish); let rate = (l.cfg.glint == null ? (cfg.glint == null ? 1 : cfg.glint) : l.cfg.glint) * st.fx.glintK;
+          if (rate > 0) tickGlints(f, dt, rate, Object.assign({ color: P.glint }, cfg.glintStyle || {})); } }
+      for (const m of st.motes) { m.y -= m.v * dt; m.p += dt * 0.8; m.x += Math.sin(m.p) * 5 * dt; if (m.y < -3) { m.y = S.h + 3; m.x = Math.random() * S.w; } }
+      cfg.update && cfg.update(S, dt, st);
+    },
+    draw(S, ctx) {
+      ctx.drawImage(st.moodTo && st.blendBg ? st.blendBg : (st.baseBg || bgFor(S, st.mood)), 0, 0, S.w, S.h);
+      const fx = st.fx || MOOD_FX[st.mood];
+      if (st.rays.length && fx.rays > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.rays * (0.55 + 0.45 * Math.sin(S.t * 0.35)); ctx.drawImage(st.rays[0], 0, 0); ctx.globalAlpha = fx.rays * (0.55 + 0.45 * Math.sin(S.t * 0.35 + Math.PI)); ctx.drawImage(st.rays[1], 0, 0); ctx.restore(); }
+      if (st.caus.length && fx.caustics > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.caustics; const o1 = (S.t * 9) % S.w, o2 = (S.t * 6) % S.h; ctx.drawImage(st.caus[0], o1 - S.w, 0); ctx.drawImage(st.caus[0], o1, 0); ctx.drawImage(st.caus[1], 0, o2 - S.h); ctx.drawImage(st.caus[1], 0, o2); ctx.restore(); }
+      st.layers.forEach((l, i) => { const k = (l.cfg.parallax == null ? (i - (st.layers.length - 1) / 2) * 0.05 : l.cfg.parallax) * (cfg.pointerParallax == null ? 1 : cfg.pointerParallax) * S.min; ctx.save(); ctx.translate(-st.px * k, -st.py * k * 0.6);
+        for (const f of l.fish) { const slices = f.L > S.min * 0.25 ? 22 : 14; const o = { scale: f.L / f.sp.L, phase: f.phase, angle: f.angle, flip: f.flip, alpha: f.alpha, wig: l.cfg.wig == null ? 1 : l.cfg.wig, slices };
+          const glowA = (E.glow == null ? 0.22 : E.glow) * fx.glow * (l.cfg.glow === false ? 0 : 1); if (glowA > 0.01) { const pulse = glowA * (0.8 + 0.3 * Math.sin(S.t * 1.2 + f.bob * 3)); const gs = st.glows.get(f.sp); if (gs) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawFish(ctx, gs, f.x, f.y, Object.assign({}, o, { alpha: pulse * f.alpha, slices: 6 })); ctx.restore(); } }
+          const sp = st.moodTo && l.blend ? l.blend[f.spi] : f.sp; drawFish(ctx, sp, f.x, f.y, Object.assign({}, o, { scale: f.L / sp.L, glints: f.glints })); }
+        ctx.restore(); });
+      if (st.motes.length && fx.motes > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = '#fff'; for (const m of st.motes) { ctx.globalAlpha = m.a * fx.motes; ctx.beginPath(); ctx.arc(m.x, m.y, m.s, 0, TAU); ctx.fill(); } ctx.restore(); }
+      cfg.draw && cfg.draw(S, ctx, st);
+    }
+  });
+  scn.setMood = (m, instant) => { st.auto = m === 'auto'; if (m === 'auto') m = moodForDate(); setMood(scn, m, instant || cfg.static); if (cfg.static) scn.render(); };
+  scn.state = st; return scn;
+}
+
+return { makeSprite, drawFish, blurSprite, fogSprite, glowSprite, tickGlints, paintBackground, causticLayer, rayLayer, run, scene, moodForDate, MOOD_LABEL, MOOD_FX, PALETTES, BG, MOTION, mulberry32, makeNoise, TAU };
+})();
+
+(function () {
+  "use strict";
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const CFG = {"seed": 1, "motion": "lanes", "glint": 1.0, "effects": {"caustics": {}, "rays": {"strength": 0.5}, "motes": 70, "glow": 0.22}, "layers": [{"count": 30, "min": 0.04, "max": 0.075, "blur": 1.8, "fog": 0.5, "alpha": 0.9, "speed": [0.09, 0.14], "glint": 0.2, "glow": false, "lanes": 8}, {"count": 22, "min": 0.085, "max": 0.145, "blur": 0.6, "fog": 0.22, "speed": [0.1, 0.17], "glint": 0.6, "lanes": 7}, {"count": 16, "min": 0.17, "max": 0.28, "speed": [0.12, 0.2], "glint": 1.2, "lanes": 6}]};
+  const params = new URLSearchParams(location.search);
+  CFG.static = reduced.matches || params.get("motion") === "reduce";
+  const canvas = document.getElementById("stage");
+  const scn = K.scene(canvas, CFG);
+  const hint = document.getElementById("hint");
+  const buttons = Array.from(document.querySelectorAll(".ctl"));
+  const NAMES = { day: "day", dusk: "dusk", midnight: "midnight" };
+  function refresh() {
+    const st = scn.state;
+    const cur = st.moodTo || st.mood;
+    document.body.dataset.mood = cur;
+    for (const b of buttons) b.setAttribute("aria-pressed", String(st.auto ? b.dataset.mood === "auto" : b.dataset.mood === cur));
+    const next = st.auto ? "the water follows your clock" : "pinned — auto follows your clock";
+    const text = NAMES[cur] + " · " + next;
+    if (hint.textContent !== text) hint.textContent = text;
+  }
+  for (const b of buttons) b.addEventListener("click", () => { scn.setMood(b.dataset.mood); refresh(); });
+  reduced.addEventListener("change", () => { location.reload(); });
+  if (CFG.static) setInterval(() => { if (scn.state.auto) { scn.setMood("auto"); refresh(); } }, 60000);
+  setInterval(refresh, 4000);
+  refresh();
+  document.documentElement.dataset.ready = "true";
+})();
+</script>
+</body>
 </html>

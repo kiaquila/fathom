@@ -8,3 +8,8 @@ build/
 coverage/
 .next/
 .wrangler/
+
+# local tooling state
+.omc/
+.claude/
+worktrees/
