@@ -1,0 +1,16 @@
+{
+  "name": "fathom",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:repository": "node scripts/check-repository.mjs",
+    "check:project": "node scripts/run-project-checks.mjs",
+    "check:budget": "node scripts/check-performance-budget.mjs",
+    "test:harness": "node --test tests/*.test.mjs",
+    "preflight": "npm run check:repository && npm run test:harness && npm run check:project && npm run check:budget"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}
