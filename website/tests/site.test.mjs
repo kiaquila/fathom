@@ -38,8 +38,13 @@ test("the shipped page has no runtime network dependency", async () => {
   assert.ok(bad('<a href="https://ks-design.art/?u=https://evil.example.com">x</a>'), "a non-exact approved URL passes");
   assert.ok(bad('<link rel="canonical" href="https://evil.example.com">'));
   assert.ok(bad('<link rel="canonical" href="https://fathom.ks-design.art" ping="https://evil.example.com">'));
+  assert.ok(bad('<a href="https://ks-design.art">a</a><a href="https:&#x2f;&#x2f;ks-design.art">b</a>'), "a second, encoded copy of the approved link passes");
   assert.ok(!bad('<a href="https://ks-design.art" rel="author">ks-design</a>'));
   assert.ok(!bad('<link rel="canonical" href="https://fathom.ks-design.art">'));
+  /* The shipped page carries the approved link exactly once, counted after decoding. */
+  const { decodeCharacterReferences } = await import("../scripts/build.mjs");
+  const anchors = [...decodeCharacterReferences(page).matchAll(/<a\b[^>]*?\bhref\s*=\s*["']([^"']*)["']/gi)].map((match) => match[1]);
+  assert.deepEqual(anchors, ["https://ks-design.art"]);
 });
 
 test("the page keeps essential document and canvas semantics", () => {

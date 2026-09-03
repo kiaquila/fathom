@@ -462,6 +462,7 @@ function scene(canvas, cfg) {
       cfg.setup && cfg.setup(S, st); },
     resize(S) { const d = st.dims || { w: S.w, h: S.h, min: S.min }; const kx = S.w / d.w, ky = S.h / d.h, km = S.min / d.min;
       for (const l of st.layers) for (const f of l.fish) { f.x *= kx; f.y *= ky; f.laneY *= ky; f.L *= km; f.scale = f.L / f.sp.L; f.speed *= km; }
+      for (const m of st.motes) { m.x *= kx; m.y *= ky; }
       st.dims = { w: S.w, h: S.h, min: S.min }; st.bg = {}; if (cfg.static) setTimeout(() => scn.render(), 0); bgFor(S, st.mood); if (st.moodTo) bgFor(S, st.moodTo); if (E.caustics) st.caus = [causticLayer(S.w, S.h, 81, E.caustics.tint), causticLayer(S.w, S.h, 82, E.caustics.tint)]; if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)]; },
     update(S, dt) {
       st.clockT += dt; if (st.auto && st.clockT > 20) { st.clockT = 0; const m = moodForDate(); if (m !== (st.moodTo || st.mood)) setMood(S, m); }

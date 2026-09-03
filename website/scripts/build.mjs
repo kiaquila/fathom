@@ -11,16 +11,17 @@ const SERVED = ["index.html"];
 
 const CHARACTER_REFERENCE = /&(?:#x?[0-9a-f]+|[a-z][a-z0-9]*);/gi;
 const DATA_URI = /data:[^"'\s)]+/gi;
-/* The outward references are deliberately exact: the footer credit and the
-   canonical tag. Character references are decoded before the match, so an
-   encoded second link cannot hide behind the allowance, and an anchor's other
-   attributes — an inline background, a `ping` — stay visible to the scan. */
+/* The outward references are deliberately exact: the footer credit (once) and
+   the canonical tag. Character references are decoded before the match, so an
+   encoded copy cannot hide behind the allowance; a second anchor to the
+   approved URL, encoded or not, stays visible to the scan, as do an anchor's
+   other attributes — an inline background, a `ping`. */
 const APPROVED_LINKS = ["https://ks-design.art"];
 const CANONICAL_ORIGIN = "https://fathom.ks-design.art";
 const CANONICAL_TAG = `<link rel="canonical" href="${CANONICAL_ORIGIN}">`;
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const ANCHOR_HREF = new RegExp(
-  `(<a\\b[^>]*?\\bhref\\s*=\\s*)(["'])(?:${APPROVED_LINKS.map(escapeRegExp).join("|")})\\2`,
+  `(<a\\b[^>]*?\\bhref\\s*=\\s*)(["'])(${APPROVED_LINKS.map(escapeRegExp).join("|")})\\2`,
   "gi"
 );
 const OFF_ORIGIN = /(?:\b(?:https?|ftp|wss?):[^\s"'()<>]+)|(?:(?:[a-z][a-z0-9+.-]*:)?\/\/[^\s"'()<>]+)/gi;
@@ -40,11 +41,18 @@ function decodeCharacterReferences(markup) {
   });
 }
 
+export { decodeCharacterReferences };
+
 export function findOffOrigin(markup) {
+  const seen = new Set();
   const scannable = decodeCharacterReferences(markup)
     .replace(DATA_URI, "data:inline")
     .replaceAll(CANONICAL_TAG, '<link rel="canonical" href="local">')
-    .replace(ANCHOR_HREF, "$1$2local$2");
+    .replace(ANCHOR_HREF, (anchor, lead, quote, url) => {
+      if (seen.has(url.toLowerCase())) return anchor;
+      seen.add(url.toLowerCase());
+      return `${lead}${quote}local${quote}`;
+    });
   const references = [...scannable.matchAll(OFF_ORIGIN)].map((match) => match[0]);
   if (/@import/i.test(scannable)) references.push("@import");
   return references;
