@@ -171,6 +171,12 @@ test("repository policy rejects unpinned actions", () => {
   });
 });
 
+test("Project CI installs both locked dependency trees", () => {
+  const workflow = readFileSync(join(templateRoot, ".github/workflows/ci.yml"), "utf8");
+  assert.match(workflow, /run: npm ci --ignore-scripts\s*$/m);
+  assert.match(workflow, /run: npm ci --ignore-scripts --prefix website\s*$/m);
+});
+
 test("the harness stays out of GitHub language statistics", () => {
   withFixture({}, (root) => {
     write(root, "src/app.js", "document.documentElement.dataset.ready = 'true';\n");
