@@ -451,7 +451,7 @@ function scene(canvas, cfg) {
   function glowsFor(l) { if (l.cfg.glow === false) return; for (const sp of l.sprites) if (!st.glows.has(sp)) st.glows.set(sp, glowSprite(sp, E.glowColor || 'rgba(255,200,110,1)', 9)); }
   function rebuildGlows() { st.glows = new Map(); for (const l of st.layers) glowsFor(l); }
   function setMood(S, mood, instant) { if (mood === st.mood && !st.moodTo) return; if (instant) { st.mood = mood; st.moodTo = null; st.fade = 1; for (const l of st.layers) { l.sprites = buildSprites(S, l.cfg, cfg, l.idx, mood); for (const f of l.fish) f.sp = l.sprites[f.spi]; } rebuildGlows(); st.bgTo = null; return; }
-    if (st.moodTo === mood) return; if (st.moodTo) { /* finish current fade */ st.mood = st.moodTo; for (const l of st.layers) { l.sprites = l.sprites2; for (const f of l.fish) f.sp = l.sprites[f.spi]; } }
+    if (st.moodTo === mood) return; if (st.moodTo) { /* finish current fade */ st.mood = st.moodTo; for (const l of st.layers) { l.sprites = l.sprites2; for (const f of l.fish) f.sp = l.sprites[f.spi]; } rebuildGlows(); }
     st.moodTo = mood; st.fade = 0; for (const l of st.layers) { l.sprites2 = buildSprites(S, l.cfg, cfg, l.idx, mood); for (const f of l.fish) f.sp2 = l.sprites2[f.spi]; } }
   const scn = run(canvas, {
     static: !!cfg.static,
@@ -482,9 +482,9 @@ function scene(canvas, cfg) {
       if (st.rays.length && fx.rays > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.rays * (0.55 + 0.45 * Math.sin(S.t * 0.35)); ctx.drawImage(st.rays[0], 0, 0); ctx.globalAlpha = fx.rays * (0.55 + 0.45 * Math.sin(S.t * 0.35 + Math.PI)); ctx.drawImage(st.rays[1], 0, 0); ctx.restore(); }
       if (st.caus.length && fx.caustics > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.caustics; const o1 = (S.t * 9) % S.w, o2 = (S.t * 6) % S.h; ctx.drawImage(st.caus[0], o1 - S.w, 0); ctx.drawImage(st.caus[0], o1, 0); ctx.drawImage(st.caus[1], 0, o2 - S.h); ctx.drawImage(st.caus[1], 0, o2); ctx.restore(); }
       st.layers.forEach((l, i) => { const k = (l.cfg.parallax == null ? (i - (st.layers.length - 1) / 2) * 0.05 : l.cfg.parallax) * (cfg.pointerParallax == null ? 1 : cfg.pointerParallax) * S.min; ctx.save(); ctx.translate(-st.px * k, -st.py * k * 0.6);
-        for (const f of l.fish) { const slices = f.L > S.min * 0.25 ? 22 : 14; const o = { scale: f.scale, phase: f.phase, angle: f.angle, flip: f.flip, alpha: f.alpha, wig: l.cfg.wig == null ? 1 : l.cfg.wig, slices };
+        for (const f of l.fish) { const slices = f.L > S.min * 0.25 ? 22 : 14; const o = { scale: f.L / f.sp.L, phase: f.phase, angle: f.angle, flip: f.flip, alpha: f.alpha, wig: l.cfg.wig == null ? 1 : l.cfg.wig, slices };
           const glowA = (E.glow == null ? 0.22 : E.glow) * fx.glow * (l.cfg.glow === false ? 0 : 1); if (glowA > 0.01) { const pulse = glowA * (0.8 + 0.3 * Math.sin(S.t * 1.2 + f.bob * 3)); const gs = st.glows.get(f.sp) || st.glows.get(f.sp2); if (gs) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawFish(ctx, gs, f.x, f.y, Object.assign({}, o, { alpha: pulse * f.alpha, slices: 6 })); ctx.restore(); } }
-          drawFish(ctx, f.sp, f.x, f.y, Object.assign({}, o, { glints: st.moodTo ? null : f.glints })); if (st.moodTo && f.sp2) drawFish(ctx, f.sp2, f.x, f.y, Object.assign({}, o, { alpha: f.alpha * st.fade, glints: f.glints })); }
+          drawFish(ctx, f.sp, f.x, f.y, Object.assign({}, o, { glints: st.moodTo ? null : f.glints })); if (st.moodTo && f.sp2) drawFish(ctx, f.sp2, f.x, f.y, Object.assign({}, o, { scale: f.L / f.sp2.L, alpha: f.alpha * st.fade, glints: f.glints })); }
         ctx.restore(); });
       if (st.motes.length && fx.motes > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = '#fff'; for (const m of st.motes) { ctx.globalAlpha = m.a * fx.motes; ctx.beginPath(); ctx.arc(m.x, m.y, m.s, 0, TAU); ctx.fill(); } ctx.restore(); }
       cfg.draw && cfg.draw(S, ctx, st);
