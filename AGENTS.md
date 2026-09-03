@@ -27,8 +27,9 @@ documents before changing the project.
   asset is added, update the build allowlist, shipped-output tests, provenance,
   and performance budget together.
 - Keep the Cloudflare Worker limited to serving static assets and attaching
-  security headers. Its name is `fathom`; do not deploy it, create a domain, or
-  change Cloudflare without explicit authorization.
+  security headers. Its name is `fathom`; the approved production domain and
+  Git-connected build contract are documented in `docs/stage-hosting.md`. Do
+  not rename the Worker or change Cloudflare without explicit authorization.
 - User-facing motion must honor `prefers-reduced-motion`. Audio, if approved,
   must be gesture-gated and have a clear mute control.
 

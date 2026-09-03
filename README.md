@@ -14,8 +14,10 @@ artwork itself is intentionally not defined yet.
   scene follows the visitor's local time of day; the page carries Ember's lab
   chrome (wordmark, footer credit) and the study number **03** at the top
   right.
-- Implemented in `website/src/index.html`. Not yet approved: canonical
-  domain, deployment, social card, PNG icons.
+- Implemented in `website/src/index.html`. The approved canonical domain is
+  `fathom.ks-design.art`; Cloudflare deploys `main` to production and creates
+  an isolated preview for non-production branches. Not yet approved: social
+  card and PNG icons.
 
 ## The artwork
 
@@ -92,15 +94,17 @@ default; set `PORT` to override it.
 
 ## Deployment
 
-`website/wrangler.json` prepares a Worker named `fathom`, with static assets
-served through the Worker so security headers apply consistently. Nothing in
-this repository deploys automatically, and no Worker, domain, or production
-environment is created by the bootstrap pull request.
+The study is published by the Cloudflare Worker `fathom` at
+[fathom.ks-design.art](https://fathom.ks-design.art) and
+[fathom.ks-design.workers.dev](https://fathom.ks-design.workers.dev).
+Cloudflare Workers Builds is connected directly to `kiaquila/fathom`: a merge
+to `main` updates production, while non-production branches receive isolated
+version preview URLs. No Cloudflare credential is stored in GitHub or in this
+repository. The exact settings and verification contract are recorded in
+[`docs/stage-hosting.md`](./docs/stage-hosting.md).
 
 ## Open questions
 
-- canonical domain and deployment approval (`fathom.ks-design.art` is the
-  obvious candidate, not yet decided);
 - social card and baked PNG icons (the page ships an inline SVG favicon only);
 - whether the work ever gains sound (none planned);
 - final browser, viewport, and performance support targets.
