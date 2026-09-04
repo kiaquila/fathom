@@ -31,7 +31,8 @@ that follows the visitor's local time of day.
   facing right, cut out on a transparent ground. At load the engine scales
   each picture per depth plane, grades it for the mood, and samples its
   brightest sequins as glint sites; the tail still runs as a travelling wave
-  because the sprite is drawn in vertical strips. `?fish=drawn` keeps the
+  because the sprite is drawn in vertical strips (assembled on whole pixels
+  on a scratch canvas, so the translucent fins show no seams). `?fish=drawn` keeps the
   earlier procedural school for side-by-side review, and it also stands in
   automatically if the pictures fail to load or do not arrive within eight
   seconds (whatever has loaded by then is used).

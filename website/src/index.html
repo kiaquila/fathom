@@ -24,6 +24,8 @@
        Brand dot only; the artwork palette and UI states stay on --gold. */
     --brand-dot-a: #818cf8;
     --brand-dot-b: #22d3ee;
+    /* pinned-button border and focus ring: graphite, softer than the ink on the day water */
+    --stroke: #52565a;
   }
   body[data-mood="dusk"] {
     --bg: #5b7085;
@@ -33,6 +35,7 @@
     --pill: rgba(255, 255, 255, 0.1);
     --pill-on: rgba(255, 255, 255, 0.3);
     --gold: #e6b45c;
+    --stroke: #f1ede5;
   }
   body[data-mood="midnight"] {
     --bg: #0c141c;
@@ -42,6 +45,7 @@
     --pill: rgba(255, 255, 255, 0.08);
     --pill-on: rgba(255, 255, 255, 0.24);
     --gold: #e8b95a;
+    --stroke: #ece8e0;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
@@ -141,8 +145,8 @@
   }
   .ctl:hover { background: var(--pill-on); }
   .ctl:active { transform: scale(0.96); }
-  .ctl[aria-pressed="true"] { background: var(--pill-on); border-color: var(--ink); }
-  .ctl:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  .ctl[aria-pressed="true"] { background: var(--pill-on); border-color: var(--stroke); }
+  .ctl:focus-visible { outline: 2px solid var(--stroke); outline-offset: 3px; }
   footer {
     text-align: center;
     padding-top: 2px;
@@ -160,7 +164,7 @@
     transition: border-color 0.2s ease, color 0.2s ease;
   }
   footer a:hover { border-color: var(--gold); color: var(--gold); }
-  footer a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  footer a:focus-visible { outline: 2px solid var(--stroke); outline-offset: 2px; }
   @media (max-width: 560px) {
     .top { padding: 16px 18px; }
     .tag { font-size: 10px; letter-spacing: 0.16em; }
@@ -411,11 +415,23 @@ function glowSprite(sp, color, px) { const c = document.createElement('canvas');
 
 /* ---------- drawing: veil tail waves more, slower ---------- */
 function wiggleOff(sp, t, phase, wig) { return wig * sp.hpx * 0.075 * Math.pow(t, 1.6) * Math.sin(phase - t * 2.8); }
+/* The wave is assembled at sprite resolution on a shared scratch canvas: every slice starts and ends on a
+   whole pixel and none overlaps its neighbour, so no seam and no double-covered column shows on the
+   translucent fins. The warped sprite then lands on the scene with a single scaled, rotated blit. */
+let warp = null;
+function warpSprite(sp, phase, wig, slices) {
+  const W = sp.w, Hh = sp.h, pad = Math.ceil(Math.abs(wig) * sp.hpx * 0.075) + 1, H2 = Hh + pad * 2;
+  if (!warp) { const c = document.createElement('canvas'); warp = { canvas: c, ctx: c.getContext('2d') }; }
+  if (warp.canvas.width < W) warp.canvas.width = W; if (warp.canvas.height < H2) warp.canvas.height = H2;
+  const x = warp.ctx; x.clearRect(0, 0, W, H2);
+  for (let i = 0, sx = 0; i < slices; i++) { const ex = Math.round((i + 1) * W / slices), sw = ex - sx; if (sw <= 0) continue; const t = 1 - (sx + sw / 2) / W; x.drawImage(sp.canvas, sx, 0, sw, Hh, sx, pad + wiggleOff(sp, t, phase, wig), sw, Hh); sx = ex; }
+  return { canvas: warp.canvas, w: W, h: H2, pad };
+}
 function drawFish(ctx, sp, x, y, o) {
   o = o || {}; const angle = o.angle || 0, scale = o.scale || 1, phase = o.phase || 0, wig = o.wig == null ? 1 : o.wig, alpha = o.alpha == null ? 1 : o.alpha, slices = o.slices || 18;
   ctx.save(); ctx.translate(x, y); ctx.rotate(angle); if (o.flip) ctx.scale(-1, 1); const k = scale / sp.ss; ctx.scale(k, k); if (alpha !== 1) ctx.globalAlpha *= alpha;
-  const W = sp.w, Hh = sp.h, sw = W / slices;
-  for (let i = 0; i < slices; i++) { const sx = i * sw, t = 1 - (sx + sw / 2) / W; ctx.drawImage(sp.canvas, sx, 0, sw + 1, Hh, -W / 2 + sx, -Hh / 2 + wiggleOff(sp, t, phase, wig), sw + 1, Hh); }
+  const W = sp.w, Hh = sp.h, wp = warpSprite(sp, phase, wig, slices);
+  ctx.drawImage(wp.canvas, 0, 0, wp.w, wp.h, -W / 2, -Hh / 2 - wp.pad, wp.w, wp.h);
   if (o.glints && o.glints.length) { ctx.globalCompositeOperation = 'lighter';
     for (const gl of o.glints) { const tl = sp.tiles[gl.i]; if (!tl) continue; const a = Math.sin(Math.PI * gl.t / gl.life) * gl.k; if (a <= 0.01) continue; const t = 1 - (tl.x + W / 2) / W, off = wiggleOff(sp, t, phase, wig);
       ctx.save(); ctx.translate(tl.x, tl.y + off); ctx.globalAlpha = a * 0.85 * alpha; ctx.fillStyle = gl.color; ctx.beginPath(); ctx.arc(0, 0, tl.r * 1.25, 0, TAU); ctx.fill();
