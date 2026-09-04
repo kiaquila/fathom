@@ -45,10 +45,11 @@ that follows the visitor's local time of day.
   and `?motion=reduce` forces the still frame for review.
 - **Motion and access.** Under `prefers-reduced-motion: reduce` the scene
   renders a single still frame (the mood controls still work, re-rendering
-  once). The canvas is decorative (`aria-hidden`); the hint line is a
-  `role="status"` region that announces the current mood; the controls are
-  native buttons with `aria-pressed`.
-- **Budget.** One HTML file (about 54 KB raw) plus three WebP fish
+  once). The canvas is decorative (`aria-hidden`); the mood carries no visible
+  caption (client decision, 2026-09-04) but is still announced through a
+  visually hidden `role="status"` region; the controls are native buttons in a
+  labelled group, each carrying `aria-pressed`.
+- **Budget.** One HTML file (about 55 KB raw) plus three WebP fish
   (about 110–160 KB each, alpha included; about 400 KB in total); no fonts,
   scripts or requests beyond these same-origin files. The footer credit is
   the only outward link.
@@ -77,8 +78,15 @@ locally with Apple's Vision subject lifting, the third carried a real alpha
 channel. All three were then trimmed, given veil-like translucency on the
 fins (alpha reduced on pale, unsaturated pixels outside the body), resized to
 1400 px and encoded as WebP with alpha.
-The lab chrome (wordmark with the gold dot, study tag, footer credit) is
-carried over from Ember by client decision.
+
+The lab chrome (wordmark, study tag, footer credit) is carried over from Ember
+as it ships on ember.ks-design.art by client decision (2026-09-03, confirmed
+2026-09-04): the letters in the system face at 11px, weight 600 and 0.22em
+tracking, the dot 0.42em on the baseline in the 1:2 proportion. The dot's
+colour is the ks·design token pair — `#818cf8` into `#22d3ee` along the 135°
+diagonal (client decision, 2026-08-28, which replaced the earlier brand-gold
+amber); it is drawn as an inline SVG circle rather than Ember's CSS rounded
+box, with the same corner-to-corner gradient.
 
 ## Structure
 
