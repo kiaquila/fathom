@@ -31,6 +31,10 @@ hard-coded.
 | Non-production deploy command | `npm run stage:preview` |
 | Builds for non-production branches | enabled |
 
+The `Cloudflare Workers and Pages` GitHub App must retain explicit access to
+`kiaquila/fathom`. Public read access is enough for a manual clone, but not for
+the push webhooks that start production and preview builds.
+
 `workers_dev: true` keeps the stable workers.dev route available and
 `preview_urls: true` enables versioned previews. `run_worker_first: true`
 ensures the security headers in `website/worker/index.ts` are attached to every
