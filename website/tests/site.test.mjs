@@ -11,9 +11,24 @@ before(async () => {
   page = await readFile(join(dist, "index.html"), "utf8");
 });
 
-test("the build publishes only the self-contained page", async () => {
-  assert.deepEqual(await readdir(dist), ["index.html"]);
+const FISH = ["fish-01.webp", "fish-02.webp", "fish-03.webp"];
+
+test("the build publishes the page and the three painted fish only", async () => {
+  assert.deepEqual((await readdir(dist)).sort(), [...FISH, "index.html"]);
   assert.ok((await stat(join(dist, "index.html"))).size > 0);
+  for (const file of FISH) {
+    const bytes = await readFile(join(dist, file));
+    assert.ok(bytes.length > 0);
+    /* RIFF….WEBPVP8X with the alpha flag: a cut-out fish, not a flat picture */
+    assert.equal(bytes.subarray(0, 4).toString("latin1"), "RIFF");
+    assert.equal(bytes.subarray(8, 16).toString("latin1"), "WEBPVP8X");
+    assert.ok(bytes[20] & 0x10, `${file} carries no alpha channel`);
+    /* root-relative, so the page finds them from any route the Worker answers with it */
+    assert.match(page, new RegExp(`"/${file}"`));
+  }
+  /* the files are the only same-origin fetches, and the page must still run without them */
+  assert.match(page, /K\.loadImages\(FISH, \d+\)/);
+  assert.match(page, /then\(boot, \(\) => boot\(\[\]\)\)/);
 });
 
 test("the shipped page has no runtime network dependency", async () => {
