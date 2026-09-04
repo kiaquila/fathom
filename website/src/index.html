@@ -17,7 +17,13 @@
     --pill: rgba(255, 255, 255, 0.28);
     --pill-on: rgba(255, 255, 255, 0.62);
     --gold: #b07f2f;
-    --gold-dot: #e8a038;
+    /* The lab wordmark's one chromatic device: the cornflower gradient of
+       its dot (ks-design client decision, 2026-08-28; it replaced the
+       brand-gold amber of 2026-08-19). Indigo into cyan along the 135°
+       diagonal — the vector itself lives in the dot's SVG gradient below.
+       Brand dot only; the artwork palette and UI states stay on --gold. */
+    --brand-dot-a: #818cf8;
+    --brand-dot-b: #22d3ee;
   }
   body[data-mood="dusk"] {
     --bg: #5b7085;
@@ -78,8 +84,9 @@
     transition: color 2s ease;
   }
   .tag strong { color: var(--ink); font-weight: 600; transition: color 2s ease; }
-  /* The gold dot is decorative, so the wordmark needs a real separator in the
-     accessible name — without it the mark is announced as one word. */
+  /* The brand dot is decorative, so the wordmark needs a real separator in the
+     accessible name — without it the mark is announced as one word. The same
+     class hides the mood status region. */
   .visually-hidden {
     position: absolute;
     width: 1px;
@@ -92,13 +99,14 @@
   }
   /* The dot sits nearer the KS than the DESIGN in a strict 1:2 proportion —
      0.15em after the S, 0.30em before the D. The tag's 0.22em letter-spacing
-     already pads the left side, so the left margin only trims it back. */
+     already pads the left side, so the left margin only trims it back. Size
+     and margins are Ember's (ember.ks-design.art); the circle itself is an
+     SVG in the markup, so the gradient is painted as a filled path rather
+     than a rounded clip. */
   .dot {
     display: inline-block;
     width: 0.42em;
     height: 0.42em;
-    border-radius: 50%;
-    background: var(--gold-dot);
     margin: 0 0.3em 0 -0.07em;
   }
   .bottom {
@@ -107,14 +115,6 @@
     align-items: center;
     gap: 14px;
     padding: 0 20px 18px;
-  }
-  .hint {
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--muted);
-    text-align: center;
-    transition: color 2s ease;
   }
   .controls {
     display: flex;
@@ -164,12 +164,11 @@
   @media (max-width: 560px) {
     .top { padding: 16px 18px; }
     .tag { font-size: 10px; letter-spacing: 0.16em; }
-    .hint { font-size: 10px; }
     .bottom { gap: 12px; padding-bottom: 14px; }
     .ctl { min-width: 0; padding: 0 12px; height: 34px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    body, .tag, .tag strong, .hint, footer p, .ctl { transition: none; }
+    body, .tag, .tag strong, footer p, .ctl { transition: none; }
   }
 </style>
 </head>
@@ -177,12 +176,23 @@
 <canvas id="stage" aria-hidden="true"></canvas>
 
 <header class="chrome top">
-  <span class="tag"><strong>ks<i class="dot" aria-hidden="true"></i><span class="visually-hidden"> </span>design</strong> · lab</span>
+  <!-- Ember's lab chrome as it ships on ember.ks-design.art (client decision,
+       2026-09-04): the letters in the system face at the tag's 11px, weight
+       600, 0.22em tracking; the dot 0.42em on the baseline, 0.15em after the
+       S and 0.30em before the D. Only the dot's colour is the ks·design
+       cornflower pair, drawn here as an SVG circle — the same 135° corner-to-
+       corner gradient as Ember's CSS dot, painted as a filled path instead of
+       a rounded clip. -->
+  <span class="tag"><strong>ks<svg class="dot" aria-hidden="true" viewBox="0 0 100 100"><defs><linearGradient id="brand-dot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--brand-dot-a)"/><stop offset="1" style="stop-color:var(--brand-dot-b)"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#brand-dot)"/></svg><span class="visually-hidden"> </span>design</strong> · lab</span>
   <span class="tag">study 03 — fathom</span>
 </header>
 
 <div class="chrome bottom">
-  <p class="hint" id="hint" role="status">the water follows your clock</p>
+  <!-- The mood has no visible caption (client decision, 2026-09-04). It is
+       still announced: the canvas is aria-hidden, and in auto mode no button
+       reports which mood the clock picked, so this stays as the only channel
+       that carries it to a screen reader. -->
+  <p class="visually-hidden" id="mood-status" role="status"></p>
   <div class="controls" role="group" aria-label="Time of day">
     <button class="ctl" type="button" data-mood="auto" aria-pressed="true">auto</button>
     <button class="ctl" type="button" data-mood="day" aria-pressed="false">day</button>
@@ -569,9 +579,8 @@ return { makeSprite, rasterSprite, loadImages, drawFish, blurSprite, fogSprite, 
   const params = new URLSearchParams(location.search);
   CFG.static = reduced.matches || params.get("motion") === "reduce";
   const canvas = document.getElementById("stage");
-  const hint = document.getElementById("hint");
+  const status = document.getElementById("mood-status");
   const buttons = Array.from(document.querySelectorAll(".ctl"));
-  const NAMES = { day: "day", dusk: "dusk", midnight: "midnight" };
   function boot(images) {
     if (images && images.length) CFG.raster = images;
     const scn = K.scene(canvas, CFG);
@@ -580,9 +589,8 @@ return { makeSprite, rasterSprite, loadImages, drawFish, blurSprite, fogSprite, 
       const cur = st.moodTo || st.mood;
       document.body.dataset.mood = cur;
       for (const b of buttons) b.setAttribute("aria-pressed", String(st.auto ? b.dataset.mood === "auto" : b.dataset.mood === cur));
-      const next = st.auto ? "the water follows your clock" : "pinned — auto follows your clock";
-      const text = NAMES[cur] + " · " + next;
-      if (hint.textContent !== text) hint.textContent = text;
+      const text = cur + (st.auto ? "" : " — pinned");
+      if (status.textContent !== text) status.textContent = text;
     }
     for (const b of buttons) b.addEventListener("click", () => { scn.setMood(b.dataset.mood); refresh(); });
     if (CFG.static) setInterval(() => { if (scn.state.auto) { scn.setMood("auto"); refresh(); } }, 60000);

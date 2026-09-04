@@ -74,9 +74,18 @@ test("the page keeps essential document and canvas semantics", () => {
 });
 
 test("the lab chrome is present and the time-of-day controls are accessible", () => {
-  /* The wordmark and footer follow Ember's lab chrome (client decision,
-     2026-09-03); the study number is fixed at 03. */
-  assert.match(page, /<strong>ks<i class="dot" aria-hidden="true"><\/i><span class="visually-hidden"> <\/span>design<\/strong> · lab/);
+  /* The wordmark and footer follow Ember's lab chrome as it ships on
+     ember.ks-design.art (client decisions, 2026-09-03 and 2026-09-04): the
+     letters in the system face, the dot 0.42em on the baseline in the 1:2
+     proportion. Only the dot's colour is the ks·design cornflower pair,
+     drawn as an SVG circle. The study number is fixed at 03. */
+  assert.match(page, /<strong>ks<svg class="dot" aria-hidden="true" viewBox="0 0 100 100"><defs><linearGradient id="brand-dot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var\(--brand-dot-a\)"\/><stop offset="1" style="stop-color:var\(--brand-dot-b\)"\/><\/linearGradient><\/defs><circle cx="50" cy="50" r="50" fill="url\(#brand-dot\)"\/><\/svg><span class="visually-hidden"> <\/span>design<\/strong> · lab/);
+  assert.match(page, /--brand-dot-a: #818cf8;\s*--brand-dot-b: #22d3ee;/);
+  assert.match(page, /\.tag \{\s*font-size: 11px;\s*letter-spacing: 0\.22em;/);
+  assert.match(page, /\.tag strong \{ color: var\(--ink\); font-weight: 600;/);
+  assert.match(page, /\.dot \{\s*display: inline-block;\s*width: 0\.42em;\s*height: 0\.42em;\s*margin: 0 0\.3em 0 -0\.07em;/);
+  /* The chrome stays on the system face — no webfont is declared or fetched. */
+  assert.doesNotMatch(page, /@font-face|url\([^)]*(?:woff|ttf|otf)/);
   assert.match(page, /study 03 — fathom/);
   assert.match(page, /Designed by <a href="https:\/\/ks-design\.art" rel="author">ks-design<\/a> · Built with AI workflows/);
   assert.match(page, /<div class="controls" role="group" aria-label="Time of day">/);
