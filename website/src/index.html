@@ -388,7 +388,13 @@ function glintSites(ctx, w, h, seed) {
   const r = w * 0.0065; for (const p of cand.slice(0, 260)) out.push({ x: p.x - w / 2, y: p.y - h / 2, r, blaze: smooth(0.8, 1, p.lum) });
   return out;
 }
-function loadImages(urls) { return Promise.all(urls.map(u => new Promise(res => { const im = new Image(); im.decoding = 'async'; im.onload = () => res(im); im.onerror = () => res(null); im.src = u; }))).then(a => a.filter(Boolean)); }
+/* Resolves with the pictures that have arrived: all of them, or — after `ms` — whatever loaded by then, so a stalled request never keeps the scene from starting. */
+function loadImages(urls, ms) {
+  const imgs = urls.map(u => { const im = new Image(); im.decoding = 'async'; im.src = u; return im; });
+  const settled = im => new Promise(res => { if (im.complete) res(); else im.onload = im.onerror = () => res(); });
+  const deadline = new Promise(res => setTimeout(res, ms == null ? 8000 : ms));
+  return Promise.race([Promise.all(imgs.map(settled)), deadline]).then(() => imgs.filter(im => im.complete && im.naturalWidth > 0));
+}
 function blurSprite(sp, px) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.filter = `blur(${px * sp.ss}px)`; x.drawImage(sp.canvas, 0, 0); return Object.assign({}, sp, { canvas: c }); }
 function fogSprite(sp, color, amt) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = amt; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); return Object.assign({}, sp, { canvas: c }); }
 function glowSprite(sp, color, px) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); const c2 = document.createElement('canvas'); c2.width = sp.w; c2.height = sp.h; const x2 = c2.getContext('2d'); x2.filter = `blur(${px * sp.ss}px)`; x2.drawImage(c, 0, 0); return Object.assign({}, sp, { canvas: c2 }); }
@@ -586,8 +592,9 @@ return { makeSprite, rasterSprite, loadImages, drawFish, blurSprite, fogSprite, 
   }
   reduced.addEventListener("change", () => { location.reload(); });
   /* `?fish=drawn` keeps the procedural school for side-by-side review; if the
-     files fail to arrive, the drawn school takes their place. */
-  (params.get("fish") === "drawn" ? Promise.resolve([]) : K.loadImages(FISH)).then(boot, () => boot([]));
+     files fail to arrive, or do not arrive within eight seconds, the drawn
+     school takes their place. */
+  (params.get("fish") === "drawn" ? Promise.resolve([]) : K.loadImages(FISH, 8000)).then(boot, () => boot([]));
 })();
 </script>
 </body>

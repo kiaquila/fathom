@@ -27,7 +27,7 @@ test("the build publishes the page and the three painted fish only", async () =>
     assert.match(page, new RegExp(`"/${file}"`));
   }
   /* the files are the only same-origin fetches, and the page must still run without them */
-  assert.match(page, /K\.loadImages\(FISH\)/);
+  assert.match(page, /K\.loadImages\(FISH, \d+\)/);
   assert.match(page, /then\(boot, \(\) => boot\(\[\]\)\)/);
 });
 

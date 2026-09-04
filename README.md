@@ -33,7 +33,8 @@ that follows the visitor's local time of day.
   brightest sequins as glint sites; the tail still runs as a travelling wave
   because the sprite is drawn in vertical strips. `?fish=drawn` keeps the
   earlier procedural school for side-by-side review, and it also stands in
-  automatically if the pictures fail to load.
+  automatically if the pictures fail to load or do not arrive within eight
+  seconds (whatever has loaded by then is used).
 - **Water.** A brushed, vertically streaked ground, light shafts from above,
   drifting caustics and motes. At night the fish gain a warm glow.
 - **Time of day.** The page reads the visitor's clock: day 07:00–16:30, dusk
