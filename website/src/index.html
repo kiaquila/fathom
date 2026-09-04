@@ -356,6 +356,39 @@ function makeSprite(opts) {
   ctx.beginPath(); ctx.arc(ex + er * 0.3, ey + er * 0.32, er * 0.1, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
   return { canvas: c, w, h, ss, L: o.L, hpx: H, cw: w / ss, ch: h / ss, tiles, palette: o.palette, seed: o.seed, tailPx: Lt + padX };
 }
+
+/* ---------- painted fish: sprites cut from supplied image files ----------
+   The image is the whole fish (side view, facing right, tail at the left edge).
+   The engine only scales it, grades it for the mood, and picks its brightest
+   sequins as glint sites. `bodyFrac` is the share of the image width taken by
+   the body, so `L` keeps meaning "body length" exactly as it does for drawn fish. */
+/* At midnight the fish stay lit — as if a torch were on them — with only a faint cool cast; the water does the darkening. */
+const GRADE = { day: null, dusk: { color: 'rgb(234,208,180)', amt: 0.5 }, midnight: { color: 'rgb(212,212,222)', amt: 0.55 } };
+function rasterSprite(img, opts) {
+  const o = Object.assign({ L: 300, ss: 2, palette: 'day', bodyFrac: 0.52, seed: 1 }, opts || {});
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  const w = Math.max(2, Math.round(o.L * o.ss / o.bodyFrac)), h = Math.max(2, Math.round(w * ih / iw));
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, 0, 0, w, h);
+  const tiles = glintSites(ctx, w, h, o.seed);
+  const g = GRADE[o.palette];
+  if (g) { ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = g.amt; ctx.fillStyle = g.color; ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'destination-in'; ctx.drawImage(img, 0, 0, w, h); ctx.globalCompositeOperation = 'source-over'; }
+  return { canvas: c, w, h, ss: o.ss, L: o.L, hpx: h * 0.5, cw: w / o.ss, ch: h / o.ss, tiles, palette: o.palette, seed: o.seed, tailPx: w * (1 - o.bodyFrac), raster: true };
+}
+/* the brightest opaque pixels, sampled on a coarse grid so the scan stays cheap */
+function glintSites(ctx, w, h, seed) {
+  const rnd = mulberry32(seed * 977 + 5), step = Math.max(2, Math.round(w / 220)), out = [];
+  let d; try { d = ctx.getImageData(0, 0, w, h).data; } catch (e) { return out; }
+  const cand = [];
+  for (let y = step; y < h - step; y += step) { for (let x = step; x < w - step; x += step) {
+    const i = (y * w + x) * 4; if (d[i + 3] < 230) continue; const lum = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) / 255; if (lum < 0.8) continue;
+    cand.push({ x: x + (rnd() - 0.5) * step, y: y + (rnd() - 0.5) * step, lum }); } }
+  for (let i = cand.length - 1; i > 0; i--) { const j = (rnd() * (i + 1)) | 0; const t = cand[i]; cand[i] = cand[j]; cand[j] = t; }
+  const r = w * 0.0065; for (const p of cand.slice(0, 260)) out.push({ x: p.x - w / 2, y: p.y - h / 2, r, blaze: smooth(0.8, 1, p.lum) });
+  return out;
+}
+function loadImages(urls) { return Promise.all(urls.map(u => new Promise(res => { const im = new Image(); im.decoding = 'async'; im.onload = () => res(im); im.onerror = () => res(null); im.src = u; }))).then(a => a.filter(Boolean)); }
 function blurSprite(sp, px) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.filter = `blur(${px * sp.ss}px)`; x.drawImage(sp.canvas, 0, 0); return Object.assign({}, sp, { canvas: c }); }
 function fogSprite(sp, color, amt) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = amt; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); return Object.assign({}, sp, { canvas: c }); }
 function glowSprite(sp, color, px) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); const c2 = document.createElement('canvas'); c2.width = sp.w; c2.height = sp.h; const x2 = c2.getContext('2d'); x2.filter = `blur(${px * sp.ss}px)`; x2.drawImage(c, 0, 0); return Object.assign({}, sp, { canvas: c2 }); }
@@ -427,9 +460,12 @@ const MOTION = {
 
 /* ---------- scene with moods ---------- */
 function buildSprites(S, L, cfg, idx, mood) {
-  const rnd = mulberry32((cfg.seed || 1) * 131 + idx * 17 + 1000); const n = L.sprites || 4; const out = [];
-  for (let i = 0; i < n; i++) { const hk = 0.92 + 0.16 * rnd(), tailK = (L.tailK || cfg.tailK || 1) * (0.9 + 0.2 * rnd());
-    let sp = makeSprite({ L: L.spriteL || Math.max(100, Math.min(320, Math.round(S.min * L.max * 1.1))), seed: (cfg.seed || 1) * 100 + idx * 10 + i, palette: mood, seqDiv: L.seqDiv || cfg.seqDiv || 56, coverage: L.coverage || cfg.coverage || 1, hk, tailK, finK: L.finK || cfg.finK || 1, warm: cfg.warm || 0, bright: cfg.bright == null ? 1 : cfg.bright });
+  const rnd = mulberry32((cfg.seed || 1) * 131 + idx * 17 + 1000); const out = [];
+  const imgs = cfg.raster && cfg.raster.length ? cfg.raster : null, n = imgs ? imgs.length : (L.sprites || 4);
+  const Lpx = L.spriteL || Math.max(100, Math.min(320, Math.round(S.min * L.max * 1.1)));
+  for (let i = 0; i < n; i++) { const hk = 0.92 + 0.16 * rnd(), tailK = (L.tailK || cfg.tailK || 1) * (0.9 + 0.2 * rnd()), seed = (cfg.seed || 1) * 100 + idx * 10 + i;
+    let sp = imgs ? rasterSprite(imgs[i], { L: Lpx, seed, palette: mood, bodyFrac: cfg.bodyFrac || 0.52 })
+      : makeSprite({ L: Lpx, seed, palette: mood, seqDiv: L.seqDiv || cfg.seqDiv || 56, coverage: L.coverage || cfg.coverage || 1, hk, tailK, finK: L.finK || cfg.finK || 1, warm: cfg.warm || 0, bright: cfg.bright == null ? 1 : cfg.bright });
     const avgScale = S.min * (L.min + L.max) / 2 / sp.L; if (L.blur) sp = blurSprite(sp, L.blur / avgScale); if (L.fog) sp = fogSprite(sp, BG[mood].top, L.fog); out.push(sp); }
   return out;
 }
@@ -514,35 +550,43 @@ function scene(canvas, cfg) {
   scn.state = st; return scn;
 }
 
-return { makeSprite, drawFish, blurSprite, fogSprite, glowSprite, tickGlints, paintBackground, causticLayer, rayLayer, run, scene, moodForDate, MOOD_LABEL, MOOD_FX, PALETTES, BG, MOTION, mulberry32, makeNoise, TAU };
+return { makeSprite, rasterSprite, loadImages, drawFish, blurSprite, fogSprite, glowSprite, tickGlints, paintBackground, causticLayer, rayLayer, run, scene, moodForDate, MOOD_LABEL, MOOD_FX, PALETTES, BG, MOTION, mulberry32, makeNoise, TAU };
 })();
 
 (function () {
   "use strict";
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-  const CFG = {"seed": 1, "motion": "lanes", "glint": 1.0, "effects": {"caustics": {}, "rays": {"strength": 0.5}, "motes": 70, "glow": 0.22}, "layers": [{"count": 30, "min": 0.04, "max": 0.075, "blur": 1.8, "fog": 0.5, "alpha": 0.9, "speed": [0.09, 0.14], "glint": 0.2, "glow": false, "lanes": 8}, {"count": 22, "min": 0.085, "max": 0.145, "blur": 0.6, "fog": 0.22, "speed": [0.1, 0.17], "glint": 0.6, "lanes": 7}, {"count": 16, "min": 0.17, "max": 0.28, "speed": [0.12, 0.2], "glint": 1.2, "lanes": 6}]};
+  const CFG = {"seed": 1, "motion": "lanes", "glint": 1.0, "effects": {"caustics": {}, "rays": {"strength": 0.5}, "motes": 70, "glow": 0.22}, "layers": [{"count": 26, "min": 0.04, "max": 0.075, "blur": 1.8, "fog": 0.5, "alpha": 0.9, "speed": [0.09, 0.14], "glint": 0.2, "glow": false, "lanes": 8}, {"count": 18, "min": 0.085, "max": 0.145, "blur": 0.6, "fog": 0.22, "speed": [0.1, 0.17], "glint": 0.6, "lanes": 7}, {"count": 12, "min": 0.17, "max": 0.28, "speed": [0.12, 0.2], "glint": 1.2, "lanes": 6}]};
+  /* The painted school: three same-origin files, cut out and graded at load. */
+  const FISH = ["fish-01.webp", "fish-02.webp", "fish-03.webp"];
   const params = new URLSearchParams(location.search);
   CFG.static = reduced.matches || params.get("motion") === "reduce";
   const canvas = document.getElementById("stage");
-  const scn = K.scene(canvas, CFG);
   const hint = document.getElementById("hint");
   const buttons = Array.from(document.querySelectorAll(".ctl"));
   const NAMES = { day: "day", dusk: "dusk", midnight: "midnight" };
-  function refresh() {
-    const st = scn.state;
-    const cur = st.moodTo || st.mood;
-    document.body.dataset.mood = cur;
-    for (const b of buttons) b.setAttribute("aria-pressed", String(st.auto ? b.dataset.mood === "auto" : b.dataset.mood === cur));
-    const next = st.auto ? "the water follows your clock" : "pinned — auto follows your clock";
-    const text = NAMES[cur] + " · " + next;
-    if (hint.textContent !== text) hint.textContent = text;
+  function boot(images) {
+    if (images && images.length) CFG.raster = images;
+    const scn = K.scene(canvas, CFG);
+    function refresh() {
+      const st = scn.state;
+      const cur = st.moodTo || st.mood;
+      document.body.dataset.mood = cur;
+      for (const b of buttons) b.setAttribute("aria-pressed", String(st.auto ? b.dataset.mood === "auto" : b.dataset.mood === cur));
+      const next = st.auto ? "the water follows your clock" : "pinned — auto follows your clock";
+      const text = NAMES[cur] + " · " + next;
+      if (hint.textContent !== text) hint.textContent = text;
+    }
+    for (const b of buttons) b.addEventListener("click", () => { scn.setMood(b.dataset.mood); refresh(); });
+    if (CFG.static) setInterval(() => { if (scn.state.auto) { scn.setMood("auto"); refresh(); } }, 60000);
+    setInterval(refresh, 4000);
+    refresh();
+    document.documentElement.dataset.ready = "true";
   }
-  for (const b of buttons) b.addEventListener("click", () => { scn.setMood(b.dataset.mood); refresh(); });
   reduced.addEventListener("change", () => { location.reload(); });
-  if (CFG.static) setInterval(() => { if (scn.state.auto) { scn.setMood("auto"); refresh(); } }, 60000);
-  setInterval(refresh, 4000);
-  refresh();
-  document.documentElement.dataset.ready = "true";
+  /* `?fish=drawn` keeps the procedural school for side-by-side review; if the
+     files fail to arrive, the drawn school takes their place. */
+  (params.get("fish") === "drawn" ? Promise.resolve([]) : K.loadImages(FISH)).then(boot, () => boot([]));
 })();
 </script>
 </body>

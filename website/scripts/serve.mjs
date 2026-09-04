@@ -9,6 +9,7 @@ const dist = resolve(import.meta.dirname, "..", "dist");
 const port = Number(process.env.PORT ?? 4660);
 const types = {
   ".html": "text/html; charset=utf-8",
+  ".webp": "image/webp",
   ".txt": "text/plain; charset=utf-8"
 };
 

@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(import.meta.dirname, "..");
 const src = join(root, "src");
 const dist = join(root, "dist");
-const SERVED = ["index.html"];
+const SERVED = ["index.html", "fish-01.webp", "fish-02.webp", "fish-03.webp"];
 
 const CHARACTER_REFERENCE = /&(?:#x?[0-9a-f]+|[a-z][a-z0-9]*);/gi;
 const DATA_URI = /data:[^"'\s)]+/gi;
