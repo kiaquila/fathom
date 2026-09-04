@@ -557,8 +557,9 @@ return { makeSprite, rasterSprite, loadImages, drawFish, blurSprite, fogSprite, 
   "use strict";
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   const CFG = {"seed": 1, "motion": "lanes", "glint": 1.0, "effects": {"caustics": {}, "rays": {"strength": 0.5}, "motes": 70, "glow": 0.22}, "layers": [{"count": 26, "min": 0.04, "max": 0.075, "blur": 1.8, "fog": 0.5, "alpha": 0.9, "speed": [0.09, 0.14], "glint": 0.2, "glow": false, "lanes": 8}, {"count": 18, "min": 0.085, "max": 0.145, "blur": 0.6, "fog": 0.22, "speed": [0.1, 0.17], "glint": 0.6, "lanes": 7}, {"count": 12, "min": 0.17, "max": 0.28, "speed": [0.12, 0.2], "glint": 1.2, "lanes": 6}]};
-  /* The painted school: three same-origin files, cut out and graded at load. */
-  const FISH = ["fish-01.webp", "fish-02.webp", "fish-03.webp"];
+  /* The painted school: three same-origin files, cut out and graded at load.
+     Root-relative, because the Worker answers unknown routes with this page too. */
+  const FISH = ["/fish-01.webp", "/fish-02.webp", "/fish-03.webp"];
   const params = new URLSearchParams(location.search);
   CFG.static = reduced.matches || params.get("motion") === "reduce";
   const canvas = document.getElementById("stage");

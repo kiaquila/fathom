@@ -23,7 +23,8 @@ test("the build publishes the page and the three painted fish only", async () =>
     assert.equal(bytes.subarray(0, 4).toString("latin1"), "RIFF");
     assert.equal(bytes.subarray(8, 16).toString("latin1"), "WEBPVP8X");
     assert.ok(bytes[20] & 0x10, `${file} carries no alpha channel`);
-    assert.match(page, new RegExp(`"${file}"`));
+    /* root-relative, so the page finds them from any route the Worker answers with it */
+    assert.match(page, new RegExp(`"/${file}"`));
   }
   /* the files are the only same-origin fetches, and the page must still run without them */
   assert.match(page, /K\.loadImages\(FISH\)/);
