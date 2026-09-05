@@ -410,13 +410,15 @@ function loadImages(urls, ms) {
   return Promise.race([Promise.all(imgs.map(settled)), deadline]).then(() => imgs.filter(im => im.complete && im.naturalWidth > 0));
 }
 /* A blurred or glowing sprite gets three sigmas of room around it; on the bare canvas the halo was cut at the edge into a faint rectangle that showed on dark water. */
-function haloSprite(sp, src, px) { const b = px * sp.ss, p = Math.ceil(b * 3), c = document.createElement('canvas'); c.width = sp.w + p * 2; c.height = sp.h + p * 2; const x = c.getContext('2d'); x.filter = `blur(${b}px)`; x.drawImage(src, p, p); return Object.assign({}, sp, { canvas: c, w: c.width, h: c.height }); }
+function haloSprite(sp, src, px) { const b = px * sp.ss, p = Math.ceil(b * 3), c = document.createElement('canvas'); c.width = sp.w + p * 2; c.height = sp.h + p * 2; const x = c.getContext('2d'); x.filter = `blur(${b}px)`; x.drawImage(src, p, p); return Object.assign({}, sp, { canvas: c, w: c.width, h: c.height, pad: (sp.pad || 0) + p }); }
 function blurSprite(sp, px) { return haloSprite(sp, sp.canvas, px); }
 function fogSprite(sp, color, amt) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = amt; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); return Object.assign({}, sp, { canvas: c }); }
 function glowSprite(sp, color, px) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); return haloSprite(sp, c, px); }
 
 /* ---------- drawing: veil tail waves more, slower ---------- */
 function wiggleOff(sp, t, phase, wig) { return wig * sp.hpx * 0.075 * Math.pow(t, 1.6) * Math.sin(phase - t * 2.8); }
+/* Position along the fish, 0 at the nose and 1 at the tail tip, measured over the picture itself: the halo padding around a blurred or glowing sprite is not part of the wave, so a padded fish and its glow move exactly like the bare one. */
+function waveT(sp, x) { const p = sp.pad || 0; return clamp(1 - (x - p) / (sp.w - 2 * p), 0, 1); }
 /* The wave is assembled at sprite resolution on a shared scratch canvas: every slice starts and ends on a
    whole pixel and none overlaps its neighbour, so no seam and no double-covered column shows on the
    translucent fins. The warped sprite then lands on the scene with a single scaled, rotated blit. */
@@ -426,7 +428,7 @@ function warpSprite(sp, phase, wig, slices) {
   if (!warp) { const c = document.createElement('canvas'); warp = { canvas: c, ctx: c.getContext('2d') }; }
   if (warp.canvas.width < W) warp.canvas.width = W; if (warp.canvas.height < H2) warp.canvas.height = H2;
   const x = warp.ctx; x.clearRect(0, 0, W, H2);
-  for (let i = 0, sx = 0; i < slices; i++) { const ex = Math.round((i + 1) * W / slices), sw = ex - sx; if (sw <= 0) continue; const t = 1 - (sx + sw / 2) / W; x.drawImage(sp.canvas, sx, 0, sw, Hh, sx, pad + wiggleOff(sp, t, phase, wig), sw, Hh); sx = ex; }
+  for (let i = 0, sx = 0; i < slices; i++) { const ex = Math.round((i + 1) * W / slices), sw = ex - sx; if (sw <= 0) continue; const t = waveT(sp, sx + sw / 2); x.drawImage(sp.canvas, sx, 0, sw, Hh, sx, pad + wiggleOff(sp, t, phase, wig), sw, Hh); sx = ex; }
   return { canvas: warp.canvas, w: W, h: H2, pad };
 }
 function drawFish(ctx, sp, x, y, o) {
@@ -435,7 +437,7 @@ function drawFish(ctx, sp, x, y, o) {
   const W = sp.w, Hh = sp.h, wp = warpSprite(sp, phase, wig, slices);
   ctx.drawImage(wp.canvas, 0, 0, wp.w, wp.h, -W / 2, -Hh / 2 - wp.pad, wp.w, wp.h);
   if (o.glints && o.glints.length) { ctx.globalCompositeOperation = 'lighter';
-    for (const gl of o.glints) { const tl = sp.tiles[gl.i]; if (!tl) continue; const a = Math.sin(Math.PI * gl.t / gl.life) * gl.k; if (a <= 0.01) continue; const t = 1 - (tl.x + W / 2) / W, off = wiggleOff(sp, t, phase, wig);
+    for (const gl of o.glints) { const tl = sp.tiles[gl.i]; if (!tl) continue; const a = Math.sin(Math.PI * gl.t / gl.life) * gl.k; if (a <= 0.01) continue; const t = waveT(sp, tl.x + W / 2), off = wiggleOff(sp, t, phase, wig);
       ctx.save(); ctx.translate(tl.x, tl.y + off); ctx.globalAlpha = a * 0.85 * alpha; ctx.fillStyle = gl.color; ctx.beginPath(); ctx.arc(0, 0, tl.r * 1.25, 0, TAU); ctx.fill();
       if (gl.star) { const r = tl.r * (2.2 + 3 * a); ctx.rotate(gl.rot); ctx.globalAlpha = a * 0.75 * alpha; ctx.lineWidth = sp.ss * 0.8; ctx.strokeStyle = gl.color; ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.moveTo(0, -r * 0.7); ctx.lineTo(0, r * 0.7); ctx.stroke(); }
       ctx.restore(); } }
