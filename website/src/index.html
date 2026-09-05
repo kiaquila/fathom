@@ -409,22 +409,27 @@ function loadImages(urls, ms) {
   const deadline = new Promise(res => setTimeout(res, ms == null ? 8000 : ms));
   return Promise.race([Promise.all(imgs.map(settled)), deadline]).then(() => imgs.filter(im => im.complete && im.naturalWidth > 0));
 }
-function blurSprite(sp, px) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.filter = `blur(${px * sp.ss}px)`; x.drawImage(sp.canvas, 0, 0); return Object.assign({}, sp, { canvas: c }); }
+/* A blurred or glowing sprite gets three sigmas of room around it; on the bare canvas the halo was cut at the edge into a faint rectangle that showed on dark water. */
+function haloSprite(sp, src, px) { const b = px * sp.ss, p = Math.ceil(b * 3), c = document.createElement('canvas'); c.width = sp.w + p * 2; c.height = sp.h + p * 2; const x = c.getContext('2d'); x.filter = `blur(${b}px)`; x.drawImage(src, p, p); return Object.assign({}, sp, { canvas: c, w: c.width, h: c.height, pad: (sp.pad || 0) + p }); }
+function blurSprite(sp, px) { return haloSprite(sp, sp.canvas, px); }
 function fogSprite(sp, color, amt) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = amt; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); return Object.assign({}, sp, { canvas: c }); }
-function glowSprite(sp, color, px) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); const c2 = document.createElement('canvas'); c2.width = sp.w; c2.height = sp.h; const x2 = c2.getContext('2d'); x2.filter = `blur(${px * sp.ss}px)`; x2.drawImage(c, 0, 0); return Object.assign({}, sp, { canvas: c2 }); }
+function glowSprite(sp, color, px) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); return haloSprite(sp, c, px); }
 
 /* ---------- drawing: veil tail waves more, slower ---------- */
 function wiggleOff(sp, t, phase, wig) { return wig * sp.hpx * 0.075 * Math.pow(t, 1.6) * Math.sin(phase - t * 2.8); }
+/* Position along the fish, 0 at the nose and 1 at the tail tip, measured over the picture itself: the halo padding around a blurred or glowing sprite is not part of the wave, so a padded fish and its glow move exactly like the bare one. */
+function waveT(sp, x) { const p = sp.pad || 0; return clamp(1 - (x - p) / (sp.w - 2 * p), 0, 1); }
 /* The wave is assembled at sprite resolution on a shared scratch canvas: every slice starts and ends on a
    whole pixel and none overlaps its neighbour, so no seam and no double-covered column shows on the
    translucent fins. The warped sprite then lands on the scene with a single scaled, rotated blit. */
 let warp = null;
 function warpSprite(sp, phase, wig, slices) {
-  const W = sp.w, Hh = sp.h, pad = Math.ceil(Math.abs(wig) * sp.hpx * 0.075) + 1, H2 = Hh + pad * 2;
+  const W = sp.w, Hh = sp.h, p = sp.pad || 0, cw = W - 2 * p, pad = Math.ceil(Math.abs(wig) * sp.hpx * 0.075) + 1, H2 = Hh + pad * 2;
   if (!warp) { const c = document.createElement('canvas'); warp = { canvas: c, ctx: c.getContext('2d') }; }
   if (warp.canvas.width < W) warp.canvas.width = W; if (warp.canvas.height < H2) warp.canvas.height = H2;
   const x = warp.ctx; x.clearRect(0, 0, W, H2);
-  for (let i = 0, sx = 0; i < slices; i++) { const ex = Math.round((i + 1) * W / slices), sw = ex - sx; if (sw <= 0) continue; const t = 1 - (sx + sw / 2) / W; x.drawImage(sp.canvas, sx, 0, sw, Hh, sx, pad + wiggleOff(sp, t, phase, wig), sw, Hh); sx = ex; }
+  /* The slices partition the picture itself, so a padded sprite is cut exactly like the bare one; the halo margins ride along with the end slices. */
+  for (let i = 0, sx = p; i < slices; i++) { const ex = p + Math.round((i + 1) * cw / slices), sw = ex - sx; if (sw <= 0) continue; const t = waveT(sp, sx + sw / 2), dx = i ? sx : 0, dw = (i === slices - 1 ? W : ex) - dx; x.drawImage(sp.canvas, dx, 0, dw, Hh, dx, pad + wiggleOff(sp, t, phase, wig), dw, Hh); sx = ex; }
   return { canvas: warp.canvas, w: W, h: H2, pad };
 }
 function drawFish(ctx, sp, x, y, o) {
@@ -433,7 +438,7 @@ function drawFish(ctx, sp, x, y, o) {
   const W = sp.w, Hh = sp.h, wp = warpSprite(sp, phase, wig, slices);
   ctx.drawImage(wp.canvas, 0, 0, wp.w, wp.h, -W / 2, -Hh / 2 - wp.pad, wp.w, wp.h);
   if (o.glints && o.glints.length) { ctx.globalCompositeOperation = 'lighter';
-    for (const gl of o.glints) { const tl = sp.tiles[gl.i]; if (!tl) continue; const a = Math.sin(Math.PI * gl.t / gl.life) * gl.k; if (a <= 0.01) continue; const t = 1 - (tl.x + W / 2) / W, off = wiggleOff(sp, t, phase, wig);
+    for (const gl of o.glints) { const tl = sp.tiles[gl.i]; if (!tl) continue; const a = Math.sin(Math.PI * gl.t / gl.life) * gl.k; if (a <= 0.01) continue; const t = waveT(sp, tl.x + W / 2), off = wiggleOff(sp, t, phase, wig);
       ctx.save(); ctx.translate(tl.x, tl.y + off); ctx.globalAlpha = a * 0.85 * alpha; ctx.fillStyle = gl.color; ctx.beginPath(); ctx.arc(0, 0, tl.r * 1.25, 0, TAU); ctx.fill();
       if (gl.star) { const r = tl.r * (2.2 + 3 * a); ctx.rotate(gl.rot); ctx.globalAlpha = a * 0.75 * alpha; ctx.lineWidth = sp.ss * 0.8; ctx.strokeStyle = gl.color; ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.moveTo(0, -r * 0.7); ctx.lineTo(0, r * 0.7); ctx.stroke(); }
       ctx.restore(); } }
@@ -455,7 +460,8 @@ function paintBackground(w, h, opts, dpr) {
   if (o.vignette > 0) { const vg = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, S * 0.75); vg.addColorStop(0, 'rgba(10,20,30,0)'); vg.addColorStop(1, `rgba(10,20,30,${o.vignette})`); ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h); }
   return c;
 }
-function causticLayer(w, h, seed, tint) { const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d'), rnd = mulberry32(seed); tint = tint || '180,215,255'; for (let i = 0; i < 90; i++) { const x = rnd() * w, y = rnd() * h, r = Math.min(w, h) * (0.04 + 0.12 * rnd()); const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${tint},${0.05 + 0.08 * rnd()})`); g.addColorStop(1, `rgba(${tint},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); } return c; }
+/* Wraps at the edges: the scene tiles it as a repeating pattern, so a blob crossing an edge is painted again on the far side. */
+function causticLayer(w, h, seed, tint) { const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d'), rnd = mulberry32(seed); tint = tint || '180,215,255'; for (let i = 0; i < 90; i++) { const x = rnd() * w, y = rnd() * h, r = Math.min(w, h) * (0.04 + 0.12 * rnd()), a = 0.05 + 0.08 * rnd(); for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) { const bx = x + dx, by = y + dy; if (bx + r <= 0 || bx - r >= w || by + r <= 0 || by - r >= h) continue; const g = ctx.createRadialGradient(bx, by, 0, bx, by, r); g.addColorStop(0, `rgba(${tint},${a})`); g.addColorStop(1, `rgba(${tint},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, r, 0, TAU); ctx.fill(); } } return c; }
 function rayLayer(w, h, seed, strength) { const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d'), rnd = mulberry32(seed); strength = strength == null ? 1 : strength; const ox = w * (0.15 + 0.3 * rnd()), oy = -h * 0.35, len = h * 1.9; for (let i = 0; i < 16; i++) { const a = Math.PI / 2 + (rnd() - 0.4) * 0.7, wd = 0.02 + 0.06 * rnd(); const g = ctx.createLinearGradient(ox, oy, ox + Math.cos(a) * len, oy + Math.sin(a) * len); g.addColorStop(0, `rgba(255,250,235,${(0.16 + 0.14 * rnd()) * strength})`); g.addColorStop(0.55, `rgba(255,250,235,${0.05 * strength})`); g.addColorStop(1, 'rgba(255,250,235,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + Math.cos(a - wd) * len, oy + Math.sin(a - wd) * len); ctx.lineTo(ox + Math.cos(a + wd) * len, oy + Math.sin(a + wd) * len); ctx.closePath(); ctx.fill(); } return c; }
 
 /* ---------- time of day ---------- */
@@ -511,10 +517,12 @@ function makeLayer(S, L, cfg, idx, mood) {
   fish.sort((a, b) => a.L - b.L); return { cfg: L, fish, sprites, idx };
 }
 function scene(canvas, cfg) {
-  const E = cfg.effects || {}; const st = { layers: [], px: 0, py: 0, caus: [], rays: [], motes: [], bg: {}, glows: new Map(), ctx: {}, mood: null, moodTo: null, fade: 1, blendAt: -1, blendBg: null, baseBg: null, auto: true, sprites2: null, bgTo: null, clockT: 0 };
+  const E = cfg.effects || {}; const st = { layers: [], px: 0, py: 0, causPat: null, rays: [], motes: [], bg: {}, glows: new Map(), ctx: {}, mood: null, moodTo: null, fade: 1, blendAt: -1, blendBg: null, baseBg: null, auto: true, sprites2: null, bgTo: null, clockT: 0 };
   const params = new URLSearchParams(location.search); const forced = params.get('mood'); if (forced && MOOD_LABEL[forced]) st.auto = false;
   st.mood = forced && MOOD_LABEL[forced] ? forced : moodForDate();
   function bgFor(S, mood) { if (!st.bg[mood]) st.bg[mood] = paintBackground(S.w, S.h, Object.assign({}, BG[mood], cfg.bg || {}), S.dpr); return st.bg[mood]; }
+  /* Caustics scroll as repeating patterns, not as two abutting drawImage copies: at a fractional offset Chrome under-fills their seam row, and that hairline crawled across the water. */
+  function causticsFor(S) { st.causPat = [81, 82].map(seed => S.ctx.createPattern(causticLayer(S.w, S.h, seed, E.caustics.tint), 'repeat')); }
   /* Glow canvases are keyed by sprite; rebuilding the map after every sprite swap evicts the previous mood's canvases. */
   function glowsFor(l) { if (l.cfg.glow === false) return; for (const sp of l.sprites) if (!st.glows.has(sp)) st.glows.set(sp, glowSprite(sp, E.glowColor || 'rgba(255,200,110,1)', 9)); }
   function rebuildGlows() { st.glows = new Map(); for (const l of st.layers) glowsFor(l); }
@@ -541,7 +549,7 @@ function scene(canvas, cfg) {
   const scn = run(canvas, {
     static: !!cfg.static,
     setup(S) { S.ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); S.ctx.drawImage(bgFor(S, st.mood), 0, 0, S.w, S.h); st.layers = cfg.layers.map((L, i) => makeLayer(S, L, cfg, i, st.mood)); st.fxFrom = MOOD_FX[st.mood]; st.ctx.all = st.layers.flatMap(l => l.fish); bgFor(S, st.mood); rebuildGlows(); st.dims = { w: S.w, h: S.h, min: S.min };
-      if (E.caustics) st.caus = [causticLayer(S.w, S.h, 81, E.caustics.tint), causticLayer(S.w, S.h, 82, E.caustics.tint)];
+      if (E.caustics) causticsFor(S);
       if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)];
       if (E.motes) st.motes = Array.from({ length: E.motes }, () => ({ x: Math.random() * S.w, y: Math.random() * S.h, s: 0.6 + Math.random() * 1.7, v: 3 + Math.random() * 9, p: Math.random() * 7, a: 0.12 + Math.random() * 0.3 }));
       cfg.setup && cfg.setup(S, st); },
@@ -551,7 +559,7 @@ function scene(canvas, cfg) {
       st.dims = { w: S.w, h: S.h, min: S.min }; st.bg = {}; st.blendBg = null; st.blendAt = -1;
       /* a captured base (retargeted fade) is rescaled rather than dropped, so the ground does not snap back mid-transition */
       if (st.baseBg) { const c = document.createElement('canvas'); c.width = Math.ceil(S.w * S.dpr); c.height = Math.ceil(S.h * S.dpr); c.getContext('2d').drawImage(st.baseBg, 0, 0, c.width, c.height); st.baseBg = c; }
-      if (cfg.static) setTimeout(() => scn.render(), 0); bgFor(S, st.mood); if (st.moodTo) bgFor(S, st.moodTo); if (E.caustics) st.caus = [causticLayer(S.w, S.h, 81, E.caustics.tint), causticLayer(S.w, S.h, 82, E.caustics.tint)]; if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)]; },
+      if (cfg.static) setTimeout(() => scn.render(), 0); bgFor(S, st.mood); if (st.moodTo) bgFor(S, st.moodTo); if (E.caustics) causticsFor(S); if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)]; },
     update(S, dt) {
       st.clockT += dt; if (st.auto && st.clockT > 20) { st.clockT = 0; const m = moodForDate(); if (m !== (st.moodTo || st.mood)) setMood(S, m); }
       if (st.moodTo) { st.fade = Math.min(1, st.fade + dt / (cfg.fadeSeconds || 6)); if (st.fade >= 1) { st.mood = st.moodTo; st.moodTo = null; st.baseBg = null; st.blendBg = null; st.fxFrom = MOOD_FX[st.mood]; for (const l of st.layers) { l.sprites = l.sprites2; l.sprites2 = null; l.blend = null; for (const f of l.fish) { f.sp = f.sp2; f.sp2 = null; } } rebuildGlows(); } else if (st.fade - st.blendAt >= 0.02) updateBlend(S); }
@@ -568,7 +576,7 @@ function scene(canvas, cfg) {
       ctx.drawImage(st.moodTo && st.blendBg ? st.blendBg : (st.baseBg || bgFor(S, st.mood)), 0, 0, S.w, S.h);
       const fx = st.fx || MOOD_FX[st.mood];
       if (st.rays.length && fx.rays > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.rays * (0.55 + 0.45 * Math.sin(S.t * 0.35)); ctx.drawImage(st.rays[0], 0, 0); ctx.globalAlpha = fx.rays * (0.55 + 0.45 * Math.sin(S.t * 0.35 + Math.PI)); ctx.drawImage(st.rays[1], 0, 0); ctx.restore(); }
-      if (st.caus.length && fx.caustics > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.caustics; const o1 = (S.t * 9) % S.w, o2 = (S.t * 6) % S.h; ctx.drawImage(st.caus[0], o1 - S.w, 0); ctx.drawImage(st.caus[0], o1, 0); ctx.drawImage(st.caus[1], 0, o2 - S.h); ctx.drawImage(st.caus[1], 0, o2); ctx.restore(); }
+      if (st.causPat && fx.caustics > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.caustics; const o1 = (S.t * 9) % S.w, o2 = (S.t * 6) % S.h; ctx.translate(o1, 0); ctx.fillStyle = st.causPat[0]; ctx.fillRect(-o1, 0, S.w, S.h); ctx.translate(-o1, o2); ctx.fillStyle = st.causPat[1]; ctx.fillRect(0, -o2, S.w, S.h); ctx.restore(); }
       st.layers.forEach((l, i) => { const k = (l.cfg.parallax == null ? (i - (st.layers.length - 1) / 2) * 0.05 : l.cfg.parallax) * (cfg.pointerParallax == null ? 1 : cfg.pointerParallax) * S.min; ctx.save(); ctx.translate(-st.px * k, -st.py * k * 0.6);
         for (const f of l.fish) { const slices = f.L > S.min * 0.25 ? 22 : 14; const o = { scale: f.L / f.sp.L, phase: f.phase, angle: f.angle, flip: f.flip, alpha: f.alpha, wig: l.cfg.wig == null ? 1 : l.cfg.wig, slices };
           const glowA = (E.glow == null ? 0.22 : E.glow) * fx.glow * (l.cfg.glow === false ? 0 : 1); if (glowA > 0.01) { const pulse = glowA * (0.8 + 0.3 * Math.sin(S.t * 1.2 + f.bob * 3)); const gs = st.glows.get(f.sp); if (gs) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawFish(ctx, gs, f.x, f.y, Object.assign({}, o, { alpha: pulse * f.alpha, slices: 6 })); ctx.restore(); } }
