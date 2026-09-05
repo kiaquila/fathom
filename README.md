@@ -54,7 +54,7 @@ that follows the visitor's local time of day.
   caption (client decision, 2026-09-04) but is still announced through a
   visually hidden `role="status"` region; the controls are native buttons in a
   labelled group, each carrying `aria-pressed`.
-- **Budget.** One HTML file (about 55 KB raw) plus three WebP fish
+- **Budget.** One HTML file (about 60 KB raw) plus three WebP fish
   (about 110–160 KB each, alpha included; about 400 KB in total); no fonts,
   scripts or requests beyond these same-origin files. The footer credit is
   the only outward link.
