@@ -424,11 +424,12 @@ function waveT(sp, x) { const p = sp.pad || 0; return clamp(1 - (x - p) / (sp.w 
    translucent fins. The warped sprite then lands on the scene with a single scaled, rotated blit. */
 let warp = null;
 function warpSprite(sp, phase, wig, slices) {
-  const W = sp.w, Hh = sp.h, pad = Math.ceil(Math.abs(wig) * sp.hpx * 0.075) + 1, H2 = Hh + pad * 2;
+  const W = sp.w, Hh = sp.h, p = sp.pad || 0, cw = W - 2 * p, pad = Math.ceil(Math.abs(wig) * sp.hpx * 0.075) + 1, H2 = Hh + pad * 2;
   if (!warp) { const c = document.createElement('canvas'); warp = { canvas: c, ctx: c.getContext('2d') }; }
   if (warp.canvas.width < W) warp.canvas.width = W; if (warp.canvas.height < H2) warp.canvas.height = H2;
   const x = warp.ctx; x.clearRect(0, 0, W, H2);
-  for (let i = 0, sx = 0; i < slices; i++) { const ex = Math.round((i + 1) * W / slices), sw = ex - sx; if (sw <= 0) continue; const t = waveT(sp, sx + sw / 2); x.drawImage(sp.canvas, sx, 0, sw, Hh, sx, pad + wiggleOff(sp, t, phase, wig), sw, Hh); sx = ex; }
+  /* The slices partition the picture itself, so a padded sprite is cut exactly like the bare one; the halo margins ride along with the end slices. */
+  for (let i = 0, sx = p; i < slices; i++) { const ex = p + Math.round((i + 1) * cw / slices), sw = ex - sx; if (sw <= 0) continue; const t = waveT(sp, sx + sw / 2), dx = i ? sx : 0, dw = (i === slices - 1 ? W : ex) - dx; x.drawImage(sp.canvas, dx, 0, dw, Hh, dx, pad + wiggleOff(sp, t, phase, wig), dw, Hh); sx = ex; }
   return { canvas: warp.canvas, w: W, h: H2, pad };
 }
 function drawFish(ctx, sp, x, y, o) {
