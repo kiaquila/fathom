@@ -17,6 +17,10 @@ that follows the visitor's local time of day.
 - Client decision (Kristina, 2026-09-04): the fish are painted pictures, not
   code. Three cut-out goldfish supplied by Kristina replace the procedurally
   drawn ones; the engine, motion and time-of-day contract stay as approved.
+- Client decision (Kristina, 2026-09-05): the favicon is one goldfish from
+  the study on a rounded midnight tile — head to the right, veil fins, a warm
+  glow — drawn as vector paths and shipped inline; it replaces the plain gold
+  disc.
 - Implemented in `website/src/index.html` with the three fish files beside it.
   The approved canonical domain is
   `fathom.ks-design.art`; Cloudflare deploys `main` to production and creates
@@ -79,6 +83,12 @@ locally with Apple's Vision subject lifting, the third carried a real alpha
 channel. All three were then trimmed, given veil-like translucency on the
 fins (alpha reduced on pale, unsaturated pixels outside the body), resized to
 1400 px and encoded as WebP with alpha.
+
+The favicon (2026-09-05) was redrawn by hand as SVG paths from an icon
+Kristina generated in ChatGPT as a reference; the tile uses the midnight
+water gradient (`#1c2c3c` → `#141f2b`), the fish the study's gold and fin
+tones. No raster or third-party asset ships with it: it is a base64 data URI
+in the page head, about 4.4 KB.
 
 The lab chrome (wordmark, study tag, footer credit) is carried over from Ember
 as it ships on ember.ks-design.art by client decision (2026-09-03, confirmed
