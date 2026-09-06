@@ -208,6 +208,15 @@ test("the dependency update policy and language rules are required", () => {
   });
 });
 
+test("the current-head Codex review gate is a required guardrail", () => {
+  withFixture({}, (root) => {
+    rmSync(join(root, "scripts/codex-review-gate.mjs"));
+    const result = run(root, "check-repository.mjs");
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Missing harness file: scripts\/codex-review-gate\.mjs/);
+  });
+});
+
 test("dependabot groups minor and patch updates behind a cooldown", () => {
   const [, actions, npm, ...extra] = readFileSync(join(templateRoot, ".github/dependabot.yml"), "utf8")
     .split(/^\s*- package-ecosystem:/m);

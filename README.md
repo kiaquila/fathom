@@ -112,10 +112,12 @@ website/
 ```
 
 Root-level scripts provide repository policy, project-check orchestration,
-performance budgets, and dependency scanning. Codex reviews are requested on
-the current pull-request head and evaluated before merge; they are not exposed
-as a required status check because GitHub does not provide the native Codex
-review as an app-bound check run in this repository.
+performance budgets, and dependency scanning. Every pull request also goes
+through the required `Codex Review` gate: the check stays red until Codex has
+reviewed the current head. Request a review by commenting
+`@codex review <current-full-head-sha>` on the pull request; trusted
+default-branch orchestration binds the request and result to that exact
+40-character head SHA.
 
 ## Commands
 
