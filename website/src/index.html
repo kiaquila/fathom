@@ -209,10 +209,7 @@
 </div>
 
 <script>
-/* Fathom — study 03. A school of sequined goldfish drifts through painted water.
-   The scene keys itself to the visitor's local clock: day 07:00–16:30, dusk
-   16:30–20:30 and 05:30–07:00, midnight otherwise, cross-fading on change.
-   Everything is drawn procedurally on one canvas; nothing is fetched. */
+/* Fathom — study 03. Painted goldfish follow the visitor's local time. */
 const K = (function () {
 'use strict';
 const TAU = Math.PI * 2;
@@ -371,11 +368,7 @@ function makeSprite(opts) {
   return { canvas: c, w, h, ss, L: o.L, hpx: H, cw: w / ss, ch: h / ss, tiles, palette: o.palette, seed: o.seed, tailPx: Lt + padX };
 }
 
-/* ---------- painted fish: sprites cut from supplied image files ----------
-   The image is the whole fish (side view, facing right, tail at the left edge).
-   The engine only scales it, grades it for the mood, and picks its brightest
-   sequins as glint sites. `bodyFrac` is the share of the image width taken by
-   the body, so `L` keeps meaning "body length" exactly as it does for drawn fish. */
+/* Painted sprites face right; `bodyFrac` keeps `L` equal to body length. */
 /* At midnight the fish stay lit — as if a torch were on them — with only a faint cool cast; the water does the darkening. */
 const GRADE = { day: null, dusk: { color: 'rgb(234,208,180)', amt: 0.5 }, midnight: { color: 'rgb(212,212,222)', amt: 0.55 } };
 function rasterSprite(img, opts) {
@@ -402,14 +395,14 @@ function glintSites(ctx, w, h, seed) {
   const r = w * 0.0065; for (const p of cand.slice(0, 260)) out.push({ x: p.x - w / 2, y: p.y - h / 2, r, blaze: smooth(0.8, 1, p.lum) });
   return out;
 }
-/* Resolves with the pictures that have arrived: all of them, or — after `ms` — whatever loaded by then, so a stalled request never keeps the scene from starting. */
+/* Use whatever images loaded before the deadline. */
 function loadImages(urls, ms) {
   const imgs = urls.map(u => { const im = new Image(); im.decoding = 'async'; im.src = u; return im; });
   const settled = im => new Promise(res => { if (im.complete) res(); else im.onload = im.onerror = () => res(); });
   const deadline = new Promise(res => setTimeout(res, ms == null ? 8000 : ms));
   return Promise.race([Promise.all(imgs.map(settled)), deadline]).then(() => imgs.filter(im => im.complete && im.naturalWidth > 0));
 }
-/* A blurred or glowing sprite gets three sigmas of room around it; on the bare canvas the halo was cut at the edge into a faint rectangle that showed on dark water. */
+/* Pad blur canvases by three sigmas to avoid clipped halos. */
 function haloSprite(sp, src, px) { const b = px * sp.ss, p = Math.ceil(b * 3), c = document.createElement('canvas'); c.width = sp.w + p * 2; c.height = sp.h + p * 2; const x = c.getContext('2d'); x.filter = `blur(${b}px)`; x.drawImage(src, p, p); return Object.assign({}, sp, { canvas: c, w: c.width, h: c.height, pad: (sp.pad || 0) + p }); }
 function blurSprite(sp, px) { return haloSprite(sp, sp.canvas, px); }
 function fogSprite(sp, color, amt) { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; const x = c.getContext('2d'); x.drawImage(sp.canvas, 0, 0); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = amt; x.fillStyle = color; x.fillRect(0, 0, sp.w, sp.h); return Object.assign({}, sp, { canvas: c }); }
@@ -417,18 +410,16 @@ function glowSprite(sp, color, px) { const c = document.createElement('canvas');
 
 /* ---------- drawing: veil tail waves more, slower ---------- */
 function wiggleOff(sp, t, phase, wig) { return wig * sp.hpx * 0.075 * Math.pow(t, 1.6) * Math.sin(phase - t * 2.8); }
-/* Position along the fish, 0 at the nose and 1 at the tail tip, measured over the picture itself: the halo padding around a blurred or glowing sprite is not part of the wave, so a padded fish and its glow move exactly like the bare one. */
+/* Measure the wave across picture pixels, excluding halo padding. */
 function waveT(sp, x) { const p = sp.pad || 0; return clamp(1 - (x - p) / (sp.w - 2 * p), 0, 1); }
-/* The wave is assembled at sprite resolution on a shared scratch canvas: every slice starts and ends on a
-   whole pixel and none overlaps its neighbour, so no seam and no double-covered column shows on the
-   translucent fins. The warped sprite then lands on the scene with a single scaled, rotated blit. */
+/* Whole-pixel, non-overlapping slices keep translucent fins seamless. */
 let warp = null;
 function warpSprite(sp, phase, wig, slices) {
   const W = sp.w, Hh = sp.h, p = sp.pad || 0, cw = W - 2 * p, pad = Math.ceil(Math.abs(wig) * sp.hpx * 0.075) + 1, H2 = Hh + pad * 2;
   if (!warp) { const c = document.createElement('canvas'); warp = { canvas: c, ctx: c.getContext('2d') }; }
   if (warp.canvas.width < W) warp.canvas.width = W; if (warp.canvas.height < H2) warp.canvas.height = H2;
   const x = warp.ctx; x.clearRect(0, 0, W, H2);
-  /* The slices partition the picture itself, so a padded sprite is cut exactly like the bare one; the halo margins ride along with the end slices. */
+  /* Partition the picture; end slices carry the halo margins. */
   for (let i = 0, sx = p; i < slices; i++) { const ex = p + Math.round((i + 1) * cw / slices), sw = ex - sx; if (sw <= 0) continue; const t = waveT(sp, sx + sw / 2), dx = i ? sx : 0, dw = (i === slices - 1 ? W : ex) - dx; x.drawImage(sp.canvas, dx, 0, dw, Hh, dx, pad + wiggleOff(sp, t, phase, wig), dw, Hh); sx = ex; }
   return { canvas: warp.canvas, w: W, h: H2, pad };
 }
@@ -460,7 +451,7 @@ function paintBackground(w, h, opts, dpr) {
   if (o.vignette > 0) { const vg = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, S * 0.75); vg.addColorStop(0, 'rgba(10,20,30,0)'); vg.addColorStop(1, `rgba(10,20,30,${o.vignette})`); ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h); }
   return c;
 }
-/* Wraps at the edges: the scene tiles it as a repeating pattern, so a blob crossing an edge is painted again on the far side. */
+/* Wrap edge-crossing blobs to make the tile periodic. */
 function causticLayer(w, h, seed, tint) { const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d'), rnd = mulberry32(seed); tint = tint || '180,215,255'; for (let i = 0; i < 90; i++) { const x = rnd() * w, y = rnd() * h, r = Math.min(w, h) * (0.04 + 0.12 * rnd()), a = 0.05 + 0.08 * rnd(); for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) { const bx = x + dx, by = y + dy; if (bx + r <= 0 || bx - r >= w || by + r <= 0 || by - r >= h) continue; const g = ctx.createRadialGradient(bx, by, 0, bx, by, r); g.addColorStop(0, `rgba(${tint},${a})`); g.addColorStop(1, `rgba(${tint},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, r, 0, TAU); ctx.fill(); } } return c; }
 function rayLayer(w, h, seed, strength) { const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d'), rnd = mulberry32(seed); strength = strength == null ? 1 : strength; const ox = w * (0.15 + 0.3 * rnd()), oy = -h * 0.35, len = h * 1.9; for (let i = 0; i < 16; i++) { const a = Math.PI / 2 + (rnd() - 0.4) * 0.7, wd = 0.02 + 0.06 * rnd(); const g = ctx.createLinearGradient(ox, oy, ox + Math.cos(a) * len, oy + Math.sin(a) * len); g.addColorStop(0, `rgba(255,250,235,${(0.16 + 0.14 * rnd()) * strength})`); g.addColorStop(0.55, `rgba(255,250,235,${0.05 * strength})`); g.addColorStop(1, 'rgba(255,250,235,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + Math.cos(a - wd) * len, oy + Math.sin(a - wd) * len); ctx.lineTo(ox + Math.cos(a + wd) * len, oy + Math.sin(a + wd) * len); ctx.closePath(); ctx.fill(); } return c; }
 
@@ -521,13 +512,12 @@ function scene(canvas, cfg) {
   const params = new URLSearchParams(location.search); const forced = params.get('mood'); if (forced && MOOD_LABEL[forced]) st.auto = false;
   st.mood = forced && MOOD_LABEL[forced] ? forced : moodForDate();
   function bgFor(S, mood) { if (!st.bg[mood]) st.bg[mood] = paintBackground(S.w, S.h, Object.assign({}, BG[mood], cfg.bg || {}), S.dpr); return st.bg[mood]; }
-  /* Caustics scroll as repeating patterns, not as two abutting drawImage copies: at a fractional offset Chrome under-fills their seam row, and that hairline crawled across the water. */
+  /* Repeating patterns avoid fractional drawImage seams. */
   function causticsFor(S) { st.causPat = [81, 82].map(seed => S.ctx.createPattern(causticLayer(S.w, S.h, seed, E.caustics.tint), 'repeat')); }
   /* Glow canvases are keyed by sprite; rebuilding the map after every sprite swap evicts the previous mood's canvases. */
   function glowsFor(l) { if (l.cfg.glow === false) return; for (const sp of l.sprites) if (!st.glows.has(sp)) st.glows.set(sp, glowSprite(sp, E.glowColor || 'rgba(255,200,110,1)', 9)); }
   function rebuildGlows() { st.glows = new Map(); for (const l of st.layers) glowsFor(l); }
-  /* True cross-fade: a at (1-f) plus b at f, added in premultiplied space, is an exact per-pixel lerp when both
-     canvases share an alpha mask (the sprites of every mood are drawn from the same seeds). */
+  /* Same-seed sprites share alpha, so premultiplied addition is an exact cross-fade. */
   function lerpInto(dst, a, b, f) { const x = dst.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.clearRect(0, 0, dst.width, dst.height); x.globalAlpha = 1 - f; x.drawImage(a, 0, 0); x.globalCompositeOperation = 'lighter'; x.globalAlpha = f; x.drawImage(b, 0, 0, dst.width, dst.height); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; }
   function updateBlend(S) { const f = st.fade; st.blendAt = f; const bgA = st.baseBg || bgFor(S, st.mood), bgB = bgFor(S, st.moodTo);
     if (!st.blendBg || st.blendBg.width !== bgA.width || st.blendBg.height !== bgA.height) { st.blendBg = document.createElement('canvas'); st.blendBg.width = bgA.width; st.blendBg.height = bgA.height; }
@@ -538,7 +528,7 @@ function scene(canvas, cfg) {
     if (instant) { st.mood = mood; st.moodTo = null; st.fade = 1; st.baseBg = null; st.blendBg = null; st.fxFrom = MOOD_FX[mood]; for (const l of st.layers) { l.sprites = buildSprites(S, l.cfg, cfg, l.idx, mood); l.sprites2 = null; l.blend = null; for (const f of l.fish) { f.sp = l.sprites[f.spi]; f.sp2 = null; } } rebuildGlows(); return; }
     if (st.moodTo === mood) return;
     if (st.moodTo) {
-      /* A fade is still running: what is on screen right now becomes the new base, so the next fade continues from it — no jump, no stacking. */
+      /* Retarget from the visible blend without a jump. */
       st.fxFrom = Object.assign({}, st.fx || MOOD_FX[st.mood]); updateBlend(S);
       st.baseBg = st.blendBg; st.blendBg = null;
       for (const l of st.layers) { l.sprites = l.blend; l.blend = null; for (const f of l.fish) f.sp = l.sprites[f.spi]; }
@@ -597,8 +587,7 @@ return { makeSprite, rasterSprite, loadImages, drawFish, blurSprite, fogSprite, 
   "use strict";
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   const CFG = {"seed": 1, "motion": "lanes", "glint": 1.0, "effects": {"caustics": {}, "rays": {"strength": 0.5}, "motes": 70, "glow": 0.22}, "layers": [{"count": 26, "min": 0.04, "max": 0.075, "blur": 1.8, "fog": 0.5, "alpha": 0.9, "speed": [0.09, 0.14], "glint": 0.2, "glow": false, "lanes": 8}, {"count": 18, "min": 0.085, "max": 0.145, "blur": 0.6, "fog": 0.22, "speed": [0.1, 0.17], "glint": 0.6, "lanes": 7}, {"count": 12, "min": 0.17, "max": 0.28, "speed": [0.12, 0.2], "glint": 1.2, "lanes": 6}]};
-  /* The painted school: three same-origin files, cut out and graded at load.
-     Root-relative, because the Worker answers unknown routes with this page too. */
+  /* Root-relative fish paths also work on Worker fallback routes. */
   const FISH = ["/fish-01.webp", "/fish-02.webp", "/fish-03.webp"];
   const params = new URLSearchParams(location.search);
   CFG.static = reduced.matches || params.get("motion") === "reduce";
@@ -623,9 +612,7 @@ return { makeSprite, rasterSprite, loadImages, drawFish, blurSprite, fogSprite, 
     document.documentElement.dataset.ready = "true";
   }
   reduced.addEventListener("change", () => { location.reload(); });
-  /* `?fish=drawn` keeps the procedural school for side-by-side review; if the
-     files fail to arrive, or do not arrive within eight seconds, the drawn
-     school takes their place. */
+  /* `?fish=drawn` or a load failure selects the procedural fallback. */
   (params.get("fish") === "drawn" ? Promise.resolve([]) : K.loadImages(FISH, 8000)).then(boot, () => boot([]));
 })();
 </script>
