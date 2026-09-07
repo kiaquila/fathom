@@ -65,6 +65,16 @@ test("the shipped page has no runtime network dependency", async () => {
 test("the page keeps essential document and canvas semantics", () => {
   assert.match(page, /<html lang="en">/);
   assert.match(page, /<meta name="viewport"/);
+  /* The water runs edge to edge on phones: the page opts into the notch and
+     bottom-bar areas, the canvas takes the large viewport height, and the
+     chrome keeps to the safe area on every edge. */
+  assert.match(page, /<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">/);
+  assert.match(page, /<meta name="theme-color" content="#[0-9a-f]{6}">/);
+  assert.match(page, /@supports \(-webkit-touch-callout: none\) \{\s*@media \(orientation: portrait\) and \(max-width: 600px\) \{\s*#stage \{ position: absolute; height: calc\(100vh \+ 120px\); height: calc\(100lvh \+ 120px\); \}/);
+  assert.match(page, /html, body \{ height: 100%; overscroll-behavior: none; \}/);
+  assert.match(page, /<div id="tint" aria-hidden="true"><\/div>/);
+  for (const edge of ["top", "left", "right"]) assert.match(page, new RegExp(`\\.top \\{[^}]*env\\(safe-area-inset-${edge}, 0px\\)`));
+  assert.match(page, /\.bottom \{[^}]*env\(safe-area-inset-bottom, 0px\)/);
   assert.match(page, /<meta name="description"/);
   assert.match(page, /<title>Fathom — ks-design lab<\/title>/);
   assert.match(page, /<canvas id="stage" aria-hidden="true"><\/canvas>/);
