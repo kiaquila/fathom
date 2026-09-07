@@ -49,7 +49,7 @@
     --stroke: #ece8e0;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; }
+  html, body { height: 100%; overscroll-behavior: none; }
   body {
     background: var(--bg);
     color: var(--ink);
@@ -67,16 +67,28 @@
     display: block;
     touch-action: none;
   }
-  /* The water fills the phone screen. iPhone Safari stops the fixed viewport
-     at its bottom bar, but a canvas at the large viewport height is painted
-     on beneath the bar and shows through its glass; the status bar cannot be
-     painted at all, so it is tinted to the water instead (theme-color, kept
-     in step with the mood). Only iPhone portrait gets the taller canvas —
-     elsewhere the extra height would simply be cut off — and the chrome
-     keeps to the safe area (viewport-fit=cover), so it sits where it did. */
+  /* The water fills the phone screen. iPhone Safari clips the page at the
+     bottom of the document inside the zone of its bottom bar; a document one
+     viewport tall ends at the bar's top edge, so a taller fixed canvas was
+     simply cut there, and what showed under the bar was Safari's own flat
+     fill, sampled from the fixed canvas it found at the edge. So on iPhones
+     in portrait the canvas is laid out as document content instead: 100lvh
+     reaches the large viewport and the extra 120px runs on through the bar
+     zone below it (about 60px on a Dynamic Island phone, more in the
+     bottom-bar layout and in in-app browsers), where the bar's glass shows
+     it. body's overflow:hidden keeps the taller document from scrolling.
+     Literal lengths on purpose: a var() failing inside calc() would void the
+     100vh fallback. The status bar cannot be painted at all: Safari tints it
+     from the fixed element it finds at the top edge, so the #tint strip,
+     kept at the water's colour, stands in for the canvas there. Elsewhere
+     the extra height would just be cut off, so only iPhone portrait gets
+     this; the chrome keeps to the safe area (viewport-fit=cover) and stays
+     where it was. */
+  #tint { display: none; }
   @supports (-webkit-touch-callout: none) {
     @media (orientation: portrait) and (max-width: 600px) {
-      #stage { height: 100vh; height: 100lvh; }
+      #stage { position: absolute; height: calc(100vh + 120px); height: calc(100lvh + 120px); }
+      #tint { display: block; position: fixed; top: 0; left: 0; width: 100%; height: 8px; pointer-events: none; z-index: 1; }
     }
   }
   .chrome {
@@ -198,6 +210,7 @@
 </head>
 <body data-mood="day">
 <canvas id="stage" aria-hidden="true"></canvas>
+<div id="tint" aria-hidden="true"></div>
 
 <header class="chrome top">
   <!-- Ember's lab chrome as it ships on ember.ks-design.art (client decision,
@@ -447,7 +460,8 @@ function warpSprite(sp, phase, wig, slices) {
   const W = sp.w, Hh = sp.h, p = sp.pad || 0, cw = W - 2 * p, pad = Math.ceil(Math.abs(wig) * sp.hpx * 0.075) + 1, H2 = Hh + pad * 2;
   if (!warp) { const c = document.createElement('canvas'); warp = { canvas: c, ctx: c.getContext('2d') }; }
   if (warp.canvas.width < W) warp.canvas.width = W; if (warp.canvas.height < H2) warp.canvas.height = H2;
-  const x = warp.ctx; x.clearRect(0, 0, W, H2);
+  /* The scratch canvas keeps the last, larger sprite beyond this one's box, and a bilinear blit reads a texel past its source rect: the margin is cleared too, or a bright hairline of a neighbour's glow rides along the right and bottom edges of every smaller fish — the "seams" that showed around fish at midnight. */
+  const x = warp.ctx; x.clearRect(0, 0, Math.min(warp.canvas.width, W + 4), Math.min(warp.canvas.height, H2 + 4));
   /* The slices partition the picture itself, so a padded sprite is cut exactly like the bare one; the halo margins ride along with the end slices. */
   for (let i = 0, sx = p; i < slices; i++) { const ex = p + Math.round((i + 1) * cw / slices), sw = ex - sx; if (sw <= 0) continue; const t = waveT(sp, sx + sw / 2), dx = i ? sx : 0, dw = (i === slices - 1 ? W : ex) - dx; x.drawImage(sp.canvas, dx, 0, dw, Hh, dx, pad + wiggleOff(sp, t, phase, wig), dw, Hh); sx = ex; }
   return { canvas: warp.canvas, w: W, h: H2, pad };
@@ -527,8 +541,9 @@ function run(canvas, hooks) {
 /* ---------- motion ---------- */
 /* Fish sizes and speeds follow the short side of the canvas, so on a phone the school shrank to a
    crawl — a body a quarter the size at a quarter the pixels per second. The pace lifts small screens
-   back towards the desktop feel: 1 at a 1000px short side, about 1.9 on a 390px phone, 2.2 at most. */
-function paceFor(S) { return clamp(Math.pow(1000 / S.min, 0.7), 1, 2.2); }
+   part of the way back towards the desktop feel: 1 at a 1000px short side, about 1.45 on a 390px phone,
+   1.6 at most (a first cut at 1.9 read as too quick on the phone). */
+function paceFor(S) { return clamp(Math.pow(1000 / S.min, 0.4), 1, 1.6); }
 const MOTION = {
   drift(f, S, dt) { f.phase += f.wigRate * dt * (0.9 + 0.2 * Math.sin(f.burst)); f.bob += f.bobRate * dt; f.burst += 0.3 * dt; const sp = f.speed * (1 + 0.14 * Math.sin(f.burst)); f.x += sp * dt; f.y += Math.sin(f.bob) * f.L * 0.06 * dt; f.angle = Math.cos(f.bob) * 0.035; if (f.x - f.L * 1.0 > S.w) { f.x = -f.L * 1.0; f.y = S.h * (0.06 + 0.88 * Math.random()); } },
   lanes(f, S, dt) { f.phase += f.wigRate * dt * (0.9 + 0.2 * Math.sin(f.burst)); f.bob += f.bobRate * dt; f.burst += 0.3 * dt; const sp = f.speed * (1 + 0.14 * Math.sin(f.burst)); f.x += sp * dt; f.y = f.laneY + Math.sin(f.bob) * f.L * 0.07; f.angle = Math.cos(f.bob) * 0.03; if (f.x - f.L * 1.0 > S.w) { f.x = -f.L * 1.0; f.laneY = clamp(f.laneY + (Math.random() - 0.5) * S.h * 0.1, S.h * 0.05, S.h * 0.95); } },
@@ -559,8 +574,11 @@ function scene(canvas, cfg) {
   const params = new URLSearchParams(location.search); const forced = params.get('mood'); if (forced && MOOD_LABEL[forced]) st.auto = false;
   st.mood = forced && MOOD_LABEL[forced] ? forced : moodForDate();
   function bgFor(S, mood) { if (!st.bg[mood]) st.bg[mood] = paintBackground(S.w, S.h, Object.assign({}, BG[mood], cfg.bg || {}), S.dpr); return st.bg[mood]; }
-  /* Caustics scroll as repeating patterns, not as two abutting drawImage copies: at a fractional offset Chrome under-fills their seam row, and that hairline crawled across the water. */
-  function causticsFor(S) { st.causPat = [81, 82].map(seed => S.ctx.createPattern(causticLayer(S.w, S.h, seed, E.caustics.tint), 'repeat')); }
+  /* Caustics scroll as repeating patterns, not as two abutting drawImage copies. The tiles are built at device
+     resolution and scrolled by whole device pixels under an identity transform: any resampling at the repeat
+     edge — a fractional offset, or a tile in CSS pixels stretched to the device grid — leaves a hairline that
+     crawls across dark water, and midnight showed it. */
+  function causticsFor(S) { const c = S.canvas; st.causPat = [81, 82].map(seed => S.ctx.createPattern(causticLayer(c.width, c.height, seed, E.caustics.tint), 'repeat')); }
   /* Glow canvases are keyed by sprite; rebuilding the map after every sprite swap evicts the previous mood's canvases. */
   function glowsFor(l) { if (l.cfg.glow === false) return; for (const sp of l.sprites) if (!st.glows.has(sp)) st.glows.set(sp, glowSprite(sp, E.glowColor || 'rgba(255,200,110,1)', 9)); }
   function rebuildGlows() { st.glows = new Map(); for (const l of st.layers) glowsFor(l); }
@@ -616,7 +634,7 @@ function scene(canvas, cfg) {
       if (cfg.tint && (ground !== st.tintG || st.blendAt !== st.tintAt)) { st.tintG = ground; st.tintAt = st.blendAt; cfg.tint(groundTint(ground, S.dpr)); }
       const fx = st.fx || MOOD_FX[st.mood];
       if (st.rays.length && fx.rays > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.rays * (0.55 + 0.45 * Math.sin(S.t * 0.35)); ctx.drawImage(st.rays[0], 0, 0); ctx.globalAlpha = fx.rays * (0.55 + 0.45 * Math.sin(S.t * 0.35 + Math.PI)); ctx.drawImage(st.rays[1], 0, 0); ctx.restore(); }
-      if (st.causPat && fx.caustics > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.caustics; const o1 = (S.t * 9) % S.w, o2 = (S.t * 6) % S.h; ctx.translate(o1, 0); ctx.fillStyle = st.causPat[0]; ctx.fillRect(-o1, 0, S.w, S.h); ctx.translate(-o1, o2); ctx.fillStyle = st.causPat[1]; ctx.fillRect(0, -o2, S.w, S.h); ctx.restore(); }
+      if (st.causPat && fx.caustics > 0.02) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.caustics; const W = S.canvas.width, H = S.canvas.height, o1 = Math.round(S.t * 9 * S.dpr) % W, o2 = Math.round(S.t * 6 * S.dpr) % H; ctx.translate(o1, 0); ctx.fillStyle = st.causPat[0]; ctx.fillRect(-o1, 0, W, H); ctx.translate(-o1, o2); ctx.fillStyle = st.causPat[1]; ctx.fillRect(0, -o2, W, H); ctx.restore(); }
       st.layers.forEach((l, i) => { const k = (l.cfg.parallax == null ? (i - (st.layers.length - 1) / 2) * 0.05 : l.cfg.parallax) * (cfg.pointerParallax == null ? 1 : cfg.pointerParallax) * S.min; ctx.save(); ctx.translate(-st.px * k, -st.py * k * 0.6);
         for (const f of l.fish) { const slices = f.L > S.min * 0.25 ? 22 : 14; const o = { scale: f.L / f.sp.L, phase: f.phase, angle: f.angle, flip: f.flip, alpha: f.alpha, wig: l.cfg.wig == null ? 1 : l.cfg.wig, slices };
           const glowA = (E.glow == null ? 0.22 : E.glow) * fx.glow * (l.cfg.glow === false ? 0 : 1); if (glowA > 0.01) { const pulse = glowA * (0.8 + 0.3 * Math.sin(S.t * 1.2 + f.bob * 3)); const gs = st.glows.get(f.sp); if (gs) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawFish(ctx, gs, f.x, f.y, Object.assign({}, o, { alpha: pulse * f.alpha, slices: 6 })); ctx.restore(); } }
@@ -644,10 +662,10 @@ return { makeSprite, rasterSprite, loadImages, drawFish, blurSprite, fogSprite, 
   CFG.static = reduced.matches || params.get("motion") === "reduce";
   const canvas = document.getElementById("stage");
   const status = document.getElementById("mood-status");
-  /* Safari paints its own status bar (and, on iOS 26, the strip under its bottom controls) in a colour
-     taken from theme-color or from the nearest fixed element's background; both follow the water. */
-  const theme = document.querySelector('meta[name="theme-color"]');
-  CFG.tint = (color) => { theme.setAttribute("content", color); canvas.style.backgroundColor = color; };
+  /* Safari paints its own status bar in a colour it takes from theme-color (iOS 15–18) or, on iOS 26,
+     samples from the fixed element at the page's top edge — the #tint strip; both follow the water. */
+  const theme = document.querySelector('meta[name="theme-color"]'), tint = document.getElementById("tint");
+  CFG.tint = (color) => { theme.setAttribute("content", color); tint.style.background = `linear-gradient(${color}, ${color} 3px, transparent)`; };
   const buttons = Array.from(document.querySelectorAll(".ctl"));
   function boot(images) {
     if (images && images.length) CFG.raster = images;

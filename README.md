@@ -23,8 +23,9 @@ that follows the visitor's local time of day.
   disc.
 - Design assumptions (2026-09-06, awaiting Kristina's review on the stage
   preview): the water's brush marks are soft washes instead of hard-edged
-  bars; on small screens the school's pace is lifted (up to 2.2×) towards
-  the desktop feel; on iPhones the canvas runs under Safari's bottom bar and
+  bars; on small screens the school's pace is lifted (up to 1.6×, halfway
+  between the original crawl and a first cut at 2.2× that read as too quick
+  on the phone); on iPhones the canvas runs under Safari's bottom bar and
   the status bar is tinted to the water. See "The artwork" below.
 - Implemented in `website/src/index.html` with the three fish files beside it.
   The approved canonical domain is
@@ -50,7 +51,13 @@ that follows the visitor's local time of day.
   marks are soft washes: tapered marks painted on two coarse sheets (quarter
   and half scale) and laid onto the ground blurred, so they read as paint;
   drawn as hard-edged bars they overlapped into fine stripes and blocks that
-  looked like interference (fixed 2026-09-06).
+  looked like interference (fixed 2026-09-06). Two more hairline sources
+  are closed the same week: every fish is warped on one shared scratch
+  canvas, and a bilinear blit reads one texel past its source rectangle, so
+  a smaller fish carried a bright hairline of the previous, larger sprite
+  (its glow, at midnight) along its right and bottom edges — the margin is
+  now cleared too; and the caustic tiles are built at device resolution and
+  scrolled by whole device pixels, so their repeat edge is never resampled.
 - **Time of day.** The page reads the visitor's clock: day 07:00–16:30, dusk
   16:30–20:30 and 05:30–07:00, midnight otherwise. It re-checks every 20 s and
   cross-fades palette, ground and effects over six seconds when the mood
@@ -60,18 +67,23 @@ that follows the visitor's local time of day.
 - **Pace and screen.** Fish sizes and speeds follow the short side of the
   canvas, so a phone would show a school a quarter the size drifting at a
   quarter of the pixels per second; a pace factor lifts small screens back
-  towards the desktop feel: 1 at a 1000 px short side, about 1.2 on a 746 px
-  laptop window, about 1.9 on a 390 px phone, 2.2 at most. Fixed-viewport
+  part of the way back towards the desktop feel: 1 at a 1000 px short side,
+  about 1.12 on a 746 px laptop window, about 1.45 on a 390 px phone, 1.6 at
+  most. Fixed-viewport
   browsers on phones leave strips of flat colour above and below the page;
   the page opts into the full screen (`viewport-fit=cover`) with the
-  wordmark, controls and credit kept inside the safe area, and on iPhones in
-  portrait the canvas takes the large viewport height so the water is
-  painted on under Safari's translucent bottom bar. Safari never lets a page
-  paint its status bar, so that strip is tinted instead: `theme-color` (and
-  the canvas's own background colour, which iOS 26 samples) follow the mean
-  colour of the water's top edge through every mood and fade. A resize
-  event that changes nothing (iPhone Safari sends them on tab switches and
-  bar toggles) leaves the scene alone.
+  wordmark, controls and credit kept inside the safe area. On iPhones in
+  portrait the canvas is laid out as document content, 120 px taller than
+  the large viewport, so the document runs on through the zone of Safari's
+  bottom bar and the water shows in the bar's glass (Safari clips the page
+  at the document's bottom inside that zone, so a taller *fixed* canvas was
+  cut at the bar's edge and the bar showed Safari's own flat fill). Safari
+  never lets a page paint its status bar, so that strip is tinted instead:
+  `theme-color` (iOS 15–18) and a fixed 8 px strip at the page's top edge
+  (iOS 26 samples the fixed element it finds there and ignores
+  `theme-color`) follow the mean colour of the water's top edge through
+  every mood and fade. A resize event that changes nothing (iPhone Safari
+  sends them on tab switches and bar toggles) leaves the scene alone.
 - **Motion and access.** Under `prefers-reduced-motion: reduce` the scene
   renders a single still frame (the mood controls still work, re-rendering
   once). The canvas is decorative (`aria-hidden`); the mood carries no visible
