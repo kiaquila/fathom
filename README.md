@@ -21,12 +21,13 @@ that follows the visitor's local time of day.
   the study on a rounded midnight tile — head to the right, veil fins, a warm
   glow — drawn as vector paths and shipped inline; it replaces the plain gold
   disc.
-- Design assumptions (2026-09-06, awaiting Kristina's review on the stage
-  preview): the water's brush marks are soft washes instead of hard-edged
-  bars; on small screens the school's pace is lifted (up to 1.6×, halfway
-  between the original crawl and a first cut at 2.2× that read as too quick
-  on the phone); on iPhones the canvas runs under Safari's bottom bar and
-  the status bar is tinted to the water. See "The artwork" below.
+- Client decision (Kristina, 2026-09-07, approved on the stage preview from
+  her iPhone and desktop): the water's brush marks are soft washes instead
+  of hard-edged bars; on small screens the school's pace is lifted up to
+  1.6× (halfway between the original crawl and a first cut at 2.2× that read
+  as too quick on the phone); on iPhones the water runs on under Safari's
+  bottom bar while the status bar is tinted to the water. See "The artwork"
+  below.
 - Implemented in `website/src/index.html` with the three fish files beside it.
   The approved canonical domain is
   `fathom.ks-design.art`; Cloudflare deploys `main` to production and creates
