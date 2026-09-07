@@ -15,6 +15,20 @@ for (const path of [
   ".github/dependabot.yml",
   ".github/pull_request_template.md",
   ".github/workflows/ci.yml",
+  /* The current-head Codex review gate is a standing guardrail: the three
+     workflows and every script they run. Deleting a runtime script while its
+     workflow remains would merge under the old trusted gate and break every
+     later request, so all entrypoints are required here. The guardrail is
+     removed deliberately and separately, never by omission. */
+  ".github/workflows/codex-review.yml",
+  ".github/workflows/codex-review-request.yml",
+  ".github/workflows/codex-review-rerun.yml",
+  "scripts/codex-review-gate.mjs",
+  "scripts/codex-review-helpers.mjs",
+  "scripts/codex-review-request.mjs",
+  "scripts/codex-review-rerun.mjs",
+  "scripts/publish-codex-review-check.mjs",
+  "tests/codex-review-gate.test.mjs",
   ".gitignore",
   "AGENTS.md",
   "CLAUDE.md",
