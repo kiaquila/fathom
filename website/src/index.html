@@ -542,8 +542,11 @@ function run(canvas, hooks) {
 /* Fish sizes and speeds follow the short side of the canvas, so on a phone the school shrank to a
    crawl — a body a quarter the size at a quarter the pixels per second. The pace lifts small screens
    part of the way back towards the desktop feel: 1 at a 1000px short side, about 1.45 on a 390px phone,
-   1.6 at most (a first cut at 1.9 read as too quick on the phone). */
-function paceFor(S) { return clamp(Math.pow(1000 / S.min, 0.4), 1, 1.6); }
+   1.6 at most (a first cut at 1.9 read as too quick on the phone). On a desktop-sized canvas the school
+   then drifts 6 % slower than that — the water there reads calmer at a glance, and the phone, where the
+   fish already cross the frame quickly, keeps its pace untouched (the damping is off below a 520px short
+   side and full from 680px up, so no phone in either orientation is affected). */
+function paceFor(S) { return clamp(Math.pow(1000 / S.min, 0.4), 1, 1.6) * lerp(1, 0.94, smooth(520, 680, S.min)); }
 const MOTION = {
   drift(f, S, dt) { f.phase += f.wigRate * dt * (0.9 + 0.2 * Math.sin(f.burst)); f.bob += f.bobRate * dt; f.burst += 0.3 * dt; const sp = f.speed * (1 + 0.14 * Math.sin(f.burst)); f.x += sp * dt; f.y += Math.sin(f.bob) * f.L * 0.06 * dt; f.angle = Math.cos(f.bob) * 0.035; if (f.x - f.L * 1.0 > S.w) { f.x = -f.L * 1.0; f.y = S.h * (0.06 + 0.88 * Math.random()); } },
   lanes(f, S, dt) { f.phase += f.wigRate * dt * (0.9 + 0.2 * Math.sin(f.burst)); f.bob += f.bobRate * dt; f.burst += 0.3 * dt; const sp = f.speed * (1 + 0.14 * Math.sin(f.burst)); f.x += sp * dt; f.y = f.laneY + Math.sin(f.bob) * f.L * 0.07; f.angle = Math.cos(f.bob) * 0.03; if (f.x - f.L * 1.0 > S.w) { f.x = -f.L * 1.0; f.laneY = clamp(f.laneY + (Math.random() - 0.5) * S.h * 0.1, S.h * 0.05, S.h * 0.95); } },
