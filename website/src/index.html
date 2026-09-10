@@ -542,12 +542,170 @@ function run(canvas, hooks) {
 /* Fish sizes and speeds follow the short side of the canvas, so on a phone the school shrank to a
    crawl — a body a quarter the size at a quarter the pixels per second. The pace lifts small screens
    part of the way back towards the desktop feel: 1 at a 1000px short side, about 1.45 on a 390px phone,
-   1.6 at most (a first cut at 1.9 read as too quick on the phone). */
-function paceFor(S) { return clamp(Math.pow(1000 / S.min, 0.4), 1, 1.6); }
+   1.6 at most (a first cut at 1.9 read as too quick on the phone). On a desktop-sized canvas the school
+   then drifts 6 % slower than that — the water there reads calmer at a glance, and the phone, where the
+   fish already cross the frame quickly, keeps its pace untouched (the damping is off below a 520px short
+   side and full from 680px up, so no phone in either orientation is affected). */
+function paceFor(S) { return clamp(Math.pow(1000 / S.min, 0.4), 1, 1.6) * lerp(1, 0.94, smooth(520, 680, S.min)); }
 const MOTION = {
   drift(f, S, dt) { f.phase += f.wigRate * dt * (0.9 + 0.2 * Math.sin(f.burst)); f.bob += f.bobRate * dt; f.burst += 0.3 * dt; const sp = f.speed * (1 + 0.14 * Math.sin(f.burst)); f.x += sp * dt; f.y += Math.sin(f.bob) * f.L * 0.06 * dt; f.angle = Math.cos(f.bob) * 0.035; if (f.x - f.L * 1.0 > S.w) { f.x = -f.L * 1.0; f.y = S.h * (0.06 + 0.88 * Math.random()); } },
   lanes(f, S, dt) { f.phase += f.wigRate * dt * (0.9 + 0.2 * Math.sin(f.burst)); f.bob += f.bobRate * dt; f.burst += 0.3 * dt; const sp = f.speed * (1 + 0.14 * Math.sin(f.burst)); f.x += sp * dt; f.y = f.laneY + Math.sin(f.bob) * f.L * 0.07; f.angle = Math.cos(f.bob) * 0.03; if (f.x - f.L * 1.0 > S.w) { f.x = -f.L * 1.0; f.laneY = clamp(f.laneY + (Math.random() - 0.5) * S.h * 0.1, S.h * 0.05, S.h * 0.95); } },
 };
+
+/* ---------- current field: the bubbles the water carries ----------
+   A scalar potential psi = fbm(x·2.5/S.min, y·2.5/S.min + t·0.05) is sampled once per frame on a coarse
+   grid (about 24×16 cells at desktop size); its curl (vx = dpsi/dy, vy = -dpsi/dx, central differences on
+   the grid) is a divergence-free flow, so the bubbles drift in slow curving sheets and never gather into
+   knots. Each bubble adds buoyancy — the big ones fast and nearly straight up — to the bilinearly sampled
+   current, weighted by size, so the small ones ride the swell like plankton. Two depths: the small dim
+   ones behind the school, the bigger brighter ones in front of it. */
+const BUB = {
+  rmin: 0.0015, rmax: 0.009, buckets: 4, halo: '214,214,230',
+  /* body = the translucent disc, lite = rim and specular, dark = the shaded lower right (graphite by day
+     for contrast on pale water, the warm fish glow at midnight) */
+  tint: {
+    day: { body: '150,168,184', lite: '255,255,255', dark: '66,84,100', shade: 0.68 },
+    dusk: { body: '214,198,198', lite: '252,242,236', dark: '98,78,86', shade: 0.4 },
+    midnight: { body: '192,216,248', lite: '230,240,255', dark: '255,204,150', shade: 0.35 },
+  },
+};
+/* One painted bubble of radius R (device px). soft = the far set: wider feather, weaker rim and specular. */
+function bubbleSprite(R, T, soft, v) {
+  const f = soft ? 2 : 1, pad = f + 2, sz = Math.ceil(2 * R + 2 * pad), c = document.createElement('canvas');
+  c.width = c.height = sz; const x = c.getContext('2d'), o = sz / 2;
+  /* body: a faint translucent disc, brighter towards the rim, feathered over the last f device px */
+  const s1 = clamp(1 - (f + 1.5) / R, 0.15, 0.9), s2 = clamp(1 - f / R, s1 + 0.05, 0.95);
+  let g = x.createRadialGradient(o, o, 0, o, o, R);
+  g.addColorStop(0, `rgba(${T.body},0.04)`); g.addColorStop(s1, `rgba(${T.body},0.12)`);
+  g.addColorStop(s2, `rgba(${T.lite},${soft ? 0.22 : 0.34})`); g.addColorStop(1, `rgba(${T.lite},0)`);
+  x.fillStyle = g; x.beginPath(); x.arc(o, o, R, 0, TAU); x.fill();
+  /* rim: bright top left, quiet sides, shaded bottom right; a wide faint pass under a narrow one = feather */
+  const w = Math.max(0.8, R * (0.12 + 0.03 * v)), rr = R - w / 2 - f / 2;
+  if (rr > 0.6) {
+    const lg = x.createLinearGradient(o - R, o - R, o + R, o + R);
+    lg.addColorStop(0, `rgba(${T.lite},0.95)`); lg.addColorStop(0.3, `rgba(${T.lite},0.5)`); lg.addColorStop(0.55, `rgba(${T.body},0.45)`);
+    lg.addColorStop(0.8, `rgba(${T.dark},${T.shade * 0.7})`); lg.addColorStop(1, `rgba(${T.dark},${T.shade})`);
+    x.strokeStyle = lg;
+    x.globalAlpha = soft ? 0.22 : 0.33; x.lineWidth = w + f; x.beginPath(); x.arc(o, o, rr, 0, TAU); x.stroke();
+    x.globalAlpha = soft ? 0.55 : 0.88; x.lineWidth = w; x.beginPath(); x.arc(o, o, rr, 0, TAU); x.stroke();
+    x.globalAlpha = 1;
+  }
+  /* specular: a small soft dot high on the left, its angle nudged per bucket so the sprites differ */
+  const ang = -2.4 + (v - 1.5) * 0.15, d = 0.44 * R, hx = o + Math.cos(ang) * d, hy = o + Math.sin(ang) * d, hr = Math.max(0.7, 0.2 * R);
+  g = x.createRadialGradient(hx, hy, 0, hx, hy, hr);
+  g.addColorStop(0, `rgba(${T.lite},${soft ? 0.55 : 0.92})`); g.addColorStop(0.5, `rgba(${T.lite},${soft ? 0.28 : 0.5})`); g.addColorStop(1, `rgba(${T.lite},0)`);
+  x.fillStyle = g; x.beginPath(); x.arc(hx, hy, hr, 0, TAU); x.fill();
+  return c;
+}
+/* The midnight halo: a plain soft blob, added with `lighter` at a few percent alpha. */
+function bubbleHalo(R) {
+  const sz = Math.ceil(2 * R + 4), c = document.createElement('canvas'); c.width = c.height = sz;
+  const x = c.getContext('2d'), o = sz / 2, g = x.createRadialGradient(o, o, 0, o, o, R);
+  g.addColorStop(0, `rgba(${BUB.halo},0.5)`); g.addColorStop(0.45, `rgba(${BUB.halo},0.16)`); g.addColorStop(1, `rgba(${BUB.halo},0)`);
+  x.fillStyle = g; x.beginPath(); x.arc(o, o, R, 0, TAU); x.fill(); return c;
+}
+function bubbleField(S) {
+  const rnd = mulberry32(1111), noise = makeNoise(53);
+  let list = [], sprites = {}, halos = [], GX = 0, GY = 0, psi = null, vx = null, vy = null, dims = { w: S.w, h: S.h };
+  const bucketR = i => BUB.rmin * Math.pow(BUB.rmax / BUB.rmin, (i + 1) / BUB.buckets);
+  const count = () => Math.round(clamp(140 * S.w * S.h / (1120 * 700), 80, 140));
+  /* the field grid: about 47 px cells (24×16 at 1120×700, some 8×19 on a phone), plus one ring of
+     padding nodes so the curl can use central differences at the edges */
+  function grid() {
+    GX = clamp(Math.round(24 * S.w / 1120), 6, 40); GY = clamp(Math.round(16 * S.h / 700), 6, 40);
+    psi = new Float32Array((GX + 3) * (GY + 3)); vx = new Float32Array((GX + 1) * (GY + 1)); vy = new Float32Array(vx.length);
+  }
+  /* depth 0 = behind the school (small), 1 = in front (bigger); fol = how strongly the current carries it
+     (1 for the tiniest, about 0.12 for the biggest, which mostly just rise) */
+  function spawn(anywhere) {
+    const depth = rnd() < 0.6 ? 0 : 1, u = Math.pow(rnd(), 1.3);
+    const rk = depth ? lerp(0.003, BUB.rmax, u) : lerp(BUB.rmin, 0.005, u);
+    const si = clamp(Math.floor(Math.log(rk / BUB.rmin) / Math.log(BUB.rmax / BUB.rmin) * BUB.buckets), 0, BUB.buckets - 1);
+    const t = (rk - BUB.rmin) / (BUB.rmax - BUB.rmin);
+    return { depth, rk, si, t, fol: lerp(1, 0.12, Math.pow(t, 0.7)), r: rk * S.min, e: 0,
+      x: rnd() * S.w, y: anywhere ? rnd() * S.h : S.h + rk * S.min * 2 + rnd() * 0.06 * S.h,
+      a: 0.55 + 0.45 * rnd(), p: rnd() * TAU, w: 0.8 + 1.4 * rnd() };
+  }
+  function fill() { const n = count(); if (list.length > n) list.length = n; while (list.length < n) list.push(spawn(true)); }
+  /* sprites at device resolution, per mood × depth × size bucket; rebuilt (never appended to) on resize */
+  function build() {
+    sprites = {}; halos = [];
+    for (const mood of ['day', 'dusk', 'midnight']) {
+      const T = BUB.tint[mood];
+      sprites[mood] = [0, 1].map(depth => {
+        const out = [];
+        for (let i = 0; i < BUB.buckets; i++) { const R = Math.max(1.2, bucketR(i) * S.min * S.dpr), c = bubbleSprite(R, T, depth === 0, i); out.push({ c, css: c.width / S.dpr, r: R / S.dpr }); }
+        return out;
+      });
+    }
+    for (let i = 0; i < BUB.buckets; i++) { const R = Math.max(2, bucketR(i) * S.min * S.dpr * 2.2), c = bubbleHalo(R); halos.push({ c, css: c.width / S.dpr, r: R / S.dpr }); }
+  }
+  /* psi on the padded node grid, then the curl at every inner node; velocities are in S.min per second */
+  function field() {
+    const nx = GX + 3, cw = S.w / GX, ch = S.h / GY, k = 2.5 / S.min, t = S.t;
+    for (let j = 0; j < GY + 3; j++) { const fy = (j - 1) * ch * k + t * 0.05; for (let i = 0; i < nx; i++) psi[i + j * nx] = fbm(noise, (i - 1) * cw * k + t * 0.013, fy, 2); }
+    const G = 0.085, ix = G / (2 * cw * k), iy = G / (2 * ch * k);
+    for (let j = 0; j <= GY; j++) for (let i = 0; i <= GX; i++) {
+      const n = (i + 1) + (j + 1) * nx, m = i + j * (GX + 1);
+      vx[m] = (psi[n + nx] - psi[n - nx]) * iy; vy[m] = -(psi[n + 1] - psi[n - 1]) * ix;
+    }
+  }
+  function update(dt) {
+    const w = S.w, h = S.h, m = S.min, t = S.t, cw = w / GX, ch = h / GY, pace = paceFor(S);
+    field();
+    for (const b of list) {
+      const up = 1 - clamp(b.y / h, 0, 1);
+      b.r = b.rk * m * (0.88 + 0.24 * up);                                  // a slight growth as it rises
+      const u = clamp(b.x / cw, 0, GX - 1e-3), v = clamp(b.y / ch, 0, GY - 1e-3), i = u | 0, j = v | 0, fx = u - i, fy = v - j;
+      const n0 = i + j * (GX + 1), n1 = n0 + GX + 1;                        // bilinear sample of the current
+      const cx = lerp(lerp(vx[n0], vx[n0 + 1], fx), lerp(vx[n1], vx[n1 + 1], fx), fy);
+      const cy = lerp(lerp(vy[n0], vy[n0 + 1], fx), lerp(vy[n1], vy[n1 + 1], fx), fy);
+      const rise = 0.016 + 0.085 * b.t, fol = b.fol * (b.depth ? 1 : 1.15); // the far ones drift a touch more
+      b.x += (cx * fol * m + Math.sin(t * b.w + b.p) * 0.004 * m * (1 - 0.6 * b.t)) * pace * dt;
+      b.y += (cy * fol - rise) * m * pace * dt;
+      if (b.y < -b.r * 2 - 0.02 * h || b.y > h + b.r * 2 + 0.12 * h) {      // out at the top (or pushed under): back in from below
+        b.y = h + b.r * 2 + Math.random() * 0.08 * h; b.x = Math.random() * w;
+        b.a = 0.55 + 0.45 * Math.random(); b.p = Math.random() * TAU;
+      }
+      if (b.x < -b.r * 3) b.x += w + b.r * 6; else if (b.x > w + b.r * 3) b.x -= w + b.r * 6;
+      /* fade in over the bottom 8 %, out over the top 7 %, with a slow quiet shimmer */
+      b.e = smooth(-b.r * 2, 0.07 * h, b.y) * smooth(h + b.r * 2, h * 0.92, b.y) * (0.86 + 0.14 * Math.sin(t * 1.1 + b.p));
+    }
+  }
+  /* One depth. During a mood fade each bubble is drawn twice (from-sprite at 1-f, to-sprite at f); at
+     midnight the near depth gets a second `lighter` pass with the halo sprite, scaled by st.fx.glow. */
+  function draw(ctx, st, depth) {
+    const fx = st.fx || MOOD_FX[st.mood], A = (0.5 + 0.5 * fx.motes) * (depth ? 1 : 0.62);   // follows the motes strength, with a floor for day
+    if (A < 0.02) return;
+    const spA = (sprites[st.mood] || sprites.day)[depth];
+    const spB = st.moodTo && sprites[st.moodTo] ? sprites[st.moodTo][depth] : null, f = spB ? st.fade : 0;
+    ctx.save(); ctx.globalCompositeOperation = 'source-over';
+    for (const b of list) {
+      if (b.depth !== depth) continue;
+      const a = b.a * b.e * A; if (a < 0.01) continue;
+      const sp = spA[b.si], d = sp.css * (b.r / sp.r), dx = b.x - d / 2, dy = b.y - d / 2;
+      ctx.globalAlpha = a * (1 - f); ctx.drawImage(sp.c, dx, dy, d, d);
+      if (spB) { const sb = spB[b.si]; ctx.globalAlpha = a * f; ctx.drawImage(sb.c, dx, dy, d, d); }
+    }
+    const hg = depth ? 0.09 * fx.glow : 0;
+    if (hg > 0.005) {
+      ctx.globalCompositeOperation = 'lighter';
+      for (const b of list) {
+        if (b.depth !== depth || b.si < 1) continue;
+        const a = b.a * b.e * hg; if (a < 0.004) continue;
+        const hs = halos[b.si], d = hs.css * (b.r * 2.2 / hs.r);
+        ctx.globalAlpha = a; ctx.drawImage(hs.c, b.x - d / 2, b.y - d / 2, d, d);
+      }
+    }
+    ctx.restore();
+  }
+  grid(); fill(); build(); update(0);
+  return {
+    update,
+    draw,
+    resize() { const kx = S.w / dims.w, ky = S.h / dims.h; for (const b of list) { b.x *= kx; b.y *= ky; } dims = { w: S.w, h: S.h }; grid(); fill(); build(); update(0); },
+  };
+}
 
 /* ---------- scene with moods ---------- */
 function buildSprites(S, L, cfg, idx, mood) {
@@ -608,6 +766,7 @@ function scene(canvas, cfg) {
       if (E.caustics) causticsFor(S);
       if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)];
       if (E.motes) st.motes = Array.from({ length: E.motes }, () => ({ x: Math.random() * S.w, y: Math.random() * S.h, s: 0.6 + Math.random() * 1.7, v: 3 + Math.random() * 9, p: Math.random() * 7, a: 0.12 + Math.random() * 0.3 }));
+      if (E.bubbles !== false) st.bub = bubbleField(S);
       cfg.setup && cfg.setup(S, st); },
     resize(S) { const d = st.dims || { w: S.w, h: S.h, min: S.min }; const kx = S.w / d.w, ky = S.h / d.h, km = S.min / d.min, kp = paceFor(S) / paceFor(d);
       for (const l of st.layers) for (const f of l.fish) { f.x *= kx; f.y *= ky; f.laneY *= ky; f.L *= km; f.scale = f.L / f.sp.L; f.speed *= km * kp; }
@@ -615,7 +774,7 @@ function scene(canvas, cfg) {
       st.dims = { w: S.w, h: S.h, min: S.min }; st.bg = {}; st.blendBg = null; st.blendAt = -1;
       /* a captured base (retargeted fade) is rescaled rather than dropped, so the ground does not snap back mid-transition */
       if (st.baseBg) { const c = document.createElement('canvas'); c.width = Math.ceil(S.w * S.dpr); c.height = Math.ceil(S.h * S.dpr); c.getContext('2d').drawImage(st.baseBg, 0, 0, c.width, c.height); st.baseBg = c; }
-      if (cfg.static) setTimeout(() => scn.render(), 0); bgFor(S, st.mood); if (st.moodTo) bgFor(S, st.moodTo); if (E.caustics) causticsFor(S); if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)]; },
+      if (cfg.static) setTimeout(() => scn.render(), 0); bgFor(S, st.mood); if (st.moodTo) bgFor(S, st.moodTo); if (E.caustics) causticsFor(S); if (E.rays) st.rays = [rayLayer(S.w, S.h, 191, E.rays.strength), rayLayer(S.w, S.h, 192, E.rays.strength)]; if (st.bub) st.bub.resize(); },
     update(S, dt) {
       st.clockT += dt; if (st.auto && st.clockT > 20) { st.clockT = 0; const m = moodForDate(); if (m !== (st.moodTo || st.mood)) setMood(S, m); }
       if (st.moodTo) { st.fade = Math.min(1, st.fade + dt / (cfg.fadeSeconds || 6)); if (st.fade >= 1) { st.mood = st.moodTo; st.moodTo = null; st.baseBg = null; st.blendBg = null; st.fxFrom = MOOD_FX[st.mood]; for (const l of st.layers) { l.sprites = l.sprites2; l.sprites2 = null; l.blend = null; for (const f of l.fish) { f.sp = f.sp2; f.sp2 = null; } } rebuildGlows(); } else if (st.fade - st.blendAt >= 0.02) updateBlend(S); }
@@ -626,6 +785,7 @@ function scene(canvas, cfg) {
         for (const f of l.fish) { mode(f, S, dt, l.cfg, st.ctx, l.fish); let rate = (l.cfg.glint == null ? (cfg.glint == null ? 1 : cfg.glint) : l.cfg.glint) * st.fx.glintK;
           if (rate > 0) tickGlints(f, dt, rate, Object.assign({ color: P.glint }, cfg.glintStyle || {})); } }
       for (const m of st.motes) { m.y -= m.v * dt; m.p += dt * 0.8; m.x += Math.sin(m.p) * 5 * dt; if (m.y < -3) { m.y = S.h + 3; m.x = Math.random() * S.w; } }
+      if (st.bub) st.bub.update(dt);
       cfg.update && cfg.update(S, dt, st);
     },
     draw(S, ctx) {
@@ -635,12 +795,14 @@ function scene(canvas, cfg) {
       const fx = st.fx || MOOD_FX[st.mood];
       if (st.rays.length && fx.rays > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.rays * (0.55 + 0.45 * Math.sin(S.t * 0.35)); ctx.drawImage(st.rays[0], 0, 0); ctx.globalAlpha = fx.rays * (0.55 + 0.45 * Math.sin(S.t * 0.35 + Math.PI)); ctx.drawImage(st.rays[1], 0, 0); ctx.restore(); }
       if (st.causPat && fx.caustics > 0.02) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fx.caustics; const W = S.canvas.width, H = S.canvas.height, o1 = Math.round(S.t * 9 * S.dpr) % W, o2 = Math.round(S.t * 6 * S.dpr) % H; ctx.translate(o1, 0); ctx.fillStyle = st.causPat[0]; ctx.fillRect(-o1, 0, W, H); ctx.translate(-o1, o2); ctx.fillStyle = st.causPat[1]; ctx.fillRect(0, -o2, W, H); ctx.restore(); }
+      if (st.bub) st.bub.draw(ctx, st, 0);                                  // the small bubbles are behind the school
       st.layers.forEach((l, i) => { const k = (l.cfg.parallax == null ? (i - (st.layers.length - 1) / 2) * 0.05 : l.cfg.parallax) * (cfg.pointerParallax == null ? 1 : cfg.pointerParallax) * S.min; ctx.save(); ctx.translate(-st.px * k, -st.py * k * 0.6);
         for (const f of l.fish) { const slices = f.L > S.min * 0.25 ? 22 : 14; const o = { scale: f.L / f.sp.L, phase: f.phase, angle: f.angle, flip: f.flip, alpha: f.alpha, wig: l.cfg.wig == null ? 1 : l.cfg.wig, slices };
           const glowA = (E.glow == null ? 0.22 : E.glow) * fx.glow * (l.cfg.glow === false ? 0 : 1); if (glowA > 0.01) { const pulse = glowA * (0.8 + 0.3 * Math.sin(S.t * 1.2 + f.bob * 3)); const gs = st.glows.get(f.sp); if (gs) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawFish(ctx, gs, f.x, f.y, Object.assign({}, o, { alpha: pulse * f.alpha, slices: 6 })); ctx.restore(); } }
           const sp = st.moodTo && l.blend ? l.blend[f.spi] : f.sp; drawFish(ctx, sp, f.x, f.y, Object.assign({}, o, { scale: f.L / sp.L, glints: f.glints })); }
         ctx.restore(); });
       if (st.motes.length && fx.motes > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = '#fff'; for (const m of st.motes) { ctx.globalAlpha = m.a * fx.motes; ctx.beginPath(); ctx.arc(m.x, m.y, m.s, 0, TAU); ctx.fill(); } ctx.restore(); }
+      if (st.bub) st.bub.draw(ctx, st, 1);                                  // the bigger ones in front of it
       cfg.draw && cfg.draw(S, ctx, st);
     }
   });
