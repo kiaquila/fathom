@@ -185,3 +185,7 @@ repository. The exact settings and verification contract are recorded in
 - social card and baked PNG icons (the page ships an inline SVG favicon only);
 - whether the work ever gains sound (none planned);
 - final browser, viewport, and performance support targets.
+
+## License
+
+Released under the [MIT License](./LICENSE). © 2026 Kristina Aquila.
