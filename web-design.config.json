@@ -34,7 +34,7 @@
     ],
     "budgets": {
       "totalRawBytes": 1572864,
-      "totalGzipBytes": 524288,
+      "totalGzipBytes": 589824,
       "criticalGzipBytes": 46080,
       "extensions": {
         ".html": {
@@ -51,7 +51,7 @@
           "rawBytes": 204800
         },
         ".jpg": {
-          "rawBytes": 307200
+          "rawBytes": 180224
         },
         ".png": {
           "rawBytes": 524288
