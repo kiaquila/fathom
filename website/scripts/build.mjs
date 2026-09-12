@@ -7,18 +7,22 @@ import { fileURLToPath } from "node:url";
 const root = resolve(import.meta.dirname, "..");
 const src = join(root, "src");
 const dist = join(root, "dist");
-const SERVED = ["index.html", "fish-01.webp", "fish-02.webp", "fish-03.webp"];
+const SERVED = ["index.html", "fish-01.webp", "fish-02.webp", "fish-03.webp", "social-preview.jpg"];
 
 const CHARACTER_REFERENCE = /&(?:#x?[0-9a-f]+|[a-z][a-z0-9]*);/gi;
 const DATA_URI = /data:[^"'\s)]+/gi;
-/* The outward references are deliberately exact: the footer credit (once) and
-   the canonical tag. Character references are decoded before the match, so an
+/* The outward references are deliberately exact: the footer credit (once),
+   canonical tag, and same-origin social metadata. Character references are decoded before the match, so an
    encoded copy cannot hide behind the allowance; a second anchor to the
    approved URL, encoded or not, stays visible to the scan, as do an anchor's
    other attributes — an inline background, a `ping`. */
 const APPROVED_LINKS = ["https://ks-design.art"];
 const CANONICAL_ORIGIN = "https://fathom.ks-design.art";
 const CANONICAL_TAG = `<link rel="canonical" href="${CANONICAL_ORIGIN}">`;
+const SOCIAL_TAGS = [
+  `<meta property="og:url" content="${CANONICAL_ORIGIN}">`,
+  `<meta property="og:image" content="${CANONICAL_ORIGIN}/social-preview.jpg">`
+];
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const ANCHOR_HREF = new RegExp(
   `(<a\\b[^>]*?\\bhref\\s*=\\s*)(["'])(${APPROVED_LINKS.map(escapeRegExp).join("|")})\\2`,
@@ -48,6 +52,8 @@ export function findOffOrigin(markup) {
   const scannable = decodeCharacterReferences(markup)
     .replace(DATA_URI, "data:inline")
     .replaceAll(CANONICAL_TAG, '<link rel="canonical" href="local">')
+    .replaceAll(SOCIAL_TAGS[0], '<meta property="og:url" content="local">')
+    .replaceAll(SOCIAL_TAGS[1], '<meta property="og:image" content="local">')
     .replace(ANCHOR_HREF, (anchor, lead, quote, url) => {
       if (seen.has(url.toLowerCase())) return anchor;
       seen.add(url.toLowerCase());

@@ -12,10 +12,14 @@ before(async () => {
 });
 
 const FISH = ["fish-01.webp", "fish-02.webp", "fish-03.webp"];
+const SOCIAL_PREVIEW = "social-preview.jpg";
 
-test("the build publishes the page and the three painted fish only", async () => {
-  assert.deepEqual((await readdir(dist)).sort(), [...FISH, "index.html"]);
+test("the build publishes the page, painted fish, and social preview only", async () => {
+  assert.deepEqual((await readdir(dist)).sort(), [...FISH, "index.html", SOCIAL_PREVIEW].sort());
   assert.ok((await stat(join(dist, "index.html"))).size > 0);
+  const preview = await readFile(join(dist, SOCIAL_PREVIEW));
+  assert.equal(preview.subarray(0, 3).toString("hex"), "ffd8ff");
+  assert.ok(preview.length < 180224);
   for (const file of FISH) {
     const bytes = await readFile(join(dist, file));
     assert.ok(bytes.length > 0);
@@ -26,7 +30,7 @@ test("the build publishes the page and the three painted fish only", async () =>
     /* root-relative, so the page finds them from any route the Worker answers with it */
     assert.match(page, new RegExp(`"/${file}"`));
   }
-  /* the files are the only same-origin fetches, and the page must still run without them */
+  /* The fish files are the only runtime fetches; the preview is for crawlers. */
   assert.match(page, /K\.loadImages\(FISH, \d+\)/);
   assert.match(page, /then\(boot, \(\) => boot\(\[\]\)\)/);
 });
@@ -36,8 +40,8 @@ test("the shipped page has no runtime network dependency", async () => {
   assert.deepEqual(findOffOrigin(page), []);
   assert.doesNotMatch(page, /<link[^>]+rel=["']?stylesheet/i);
   assert.doesNotMatch(page, /<script[^>]+src=/i);
-  /* The footer credit and exact canonical tag are the only references allowed
-     to leave the origin; neither allowance may become a tunnel. */
+  /* The footer credit and exact same-origin metadata are the only full URLs
+     allowed in the page; neither allowance may become a tunnel. */
   const outward = [...page.matchAll(/(?:src|href)\s*=\s*["']([a-z]+:)?\/\/[^"']+/gi)].map((match) => match[0]);
   assert.deepEqual(outward, [
     'href="https://fathom.ks-design.art',
@@ -53,6 +57,8 @@ test("the shipped page has no runtime network dependency", async () => {
   assert.ok(bad('<a href="https://ks-design.art/?u=https://evil.example.com">x</a>'), "a non-exact approved URL passes");
   assert.ok(bad('<link rel="canonical" href="https://evil.example.com">'));
   assert.ok(bad('<link rel="canonical" href="https://fathom.ks-design.art" ping="https://evil.example.com">'));
+  assert.ok(bad('<meta property="og:image" content="https://evil.example.com/preview.jpg">'));
+  assert.ok(bad('<meta property="og:image" content="https://fathom.ks-design.art/social-preview.jpg?next=https://evil.example.com">'));
   assert.ok(bad('<a href="https://ks-design.art">a</a><a href="https:&#x2f;&#x2f;ks-design.art">b</a>'), "a second, encoded copy of the approved link passes");
   assert.ok(!bad('<a href="https://ks-design.art" rel="author">ks-design</a>'));
   assert.ok(!bad('<link rel="canonical" href="https://fathom.ks-design.art">'));
@@ -105,9 +111,17 @@ test("the lab chrome is present and the time-of-day controls are accessible", ()
   assert.match(page, /function moodForDate/);
 });
 
-test("the page names the approved canonical origin", () => {
+test("the page names the approved canonical origin and same-origin social preview", () => {
   assert.match(page, /<link rel="canonical" href="https:\/\/fathom\.ks-design\.art">/);
-  assert.doesNotMatch(page, /og:image/);
+  assert.match(page, /<meta property="og:type" content="website">/);
+  assert.match(page, /<meta property="og:title" content="Fathom — ks-design lab">/);
+  assert.match(page, /<meta property="og:description" content="A school of sequined goldfish drifting through painted water that follows your local time of day\.">/);
+  assert.match(page, /<meta property="og:url" content="https:\/\/fathom\.ks-design\.art">/);
+  assert.match(page, /<meta property="og:image" content="https:\/\/fathom\.ks-design\.art\/social-preview\.jpg">/);
+  assert.match(page, /<meta property="og:image:type" content="image\/jpeg">/);
+  assert.match(page, /<meta property="og:image:width" content="1280">/);
+  assert.match(page, /<meta property="og:image:height" content="720">/);
+  assert.match(page, /<meta property="og:image:alt" content="Sequined goldfish drifting through painted water in Fathom\.">/);
   assert.doesNotMatch(page, /<form\b/i);
 });
 
