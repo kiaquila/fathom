@@ -21,6 +21,6 @@
     "stage:preview": "WRANGLER_WRITE_LOGS=false WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler versions upload"
   },
   "devDependencies": {
-    "wrangler": "4.129.1"
+    "wrangler": "4.131.1"
   }
 }
