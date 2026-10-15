@@ -183,9 +183,38 @@ export function isAcceptableCodexSummaryComment(comment, headSha, requestedAt, s
     : commentCreatedAt > requestTime;
   const isAfterRequest = !requestedAt ||
     (Number.isFinite(commentCreatedAt) && Number.isFinite(requestTime) && ordering);
-  return isAfterRequest &&
-    isTrustedCodexLogin(comment?.user?.login) &&
-    /^Codex Review:\s*Didn't find any major issues\./im.test(body) &&
-    Boolean(shortSha) &&
-    new RegExp(`\\*\\*Reviewed commit:\\*\\*\\s*\\\`${shortSha}\\\``, "i").test(body);
+  if (!isAfterRequest || !isTrustedCodexLogin(comment?.user?.login)) return false;
+  if (!/^[a-f0-9]{40}$/i.test(String(headSha || ""))) return false;
+
+  // Only the observed receipt envelope is evidence. The mutable structured
+  // activity summary is a wakeup signal, not a no-findings verdict.
+  if ((body.match(/codex-review-receipt/g) || []).length > 1 ||
+      /codex-(?:review-state|pull-request-review-summary)/i.test(body) ||
+      (body.match(/\*\*Reviewed commit:/g) || []).length !== 1 ||
+      containsBlockingCodexSeverity(body)) return false;
+  let receipt = body.trim();
+  if (receipt.startsWith("<!-- codex-review-receipt:v1 -->")) {
+    receipt = receipt.slice("<!-- codex-review-receipt:v1 -->".length).trim();
+  }
+  const details = receipt.indexOf("<details>");
+  if (details !== -1) {
+    const about = receipt.slice(details);
+    if (!/^<details>[\s\S]*About Codex in GitHub[\s\S]*<\/details>$/.test(about)) return false;
+    receipt = receipt.slice(0, details).trim();
+  }
+  const match = receipt.match(
+    /^Codex Review: Didn't find any major issues\.([^\r\n]*)\r?\n\s*\r?\n\*\*Reviewed commit:\*\* +`([a-f0-9]{10}|[a-f0-9]{40})`$/i
+  );
+  if (!match) return false;
+  // Native receipts may append encouragement or emoji, never another verdict.
+  if (!/^(?:\s|Keep it up!|:[a-z_]+:|\p{Extended_Pictographic}|\uFE0F|\u200D)*$/u.test(match[1])) return false;
+  return match[2].toLowerCase() === shortSha.toLowerCase() ||
+    match[2].toLowerCase() === headSha.toLowerCase();
+}
+
+export function hasUnresolvedCodexFindings(threads = []) {
+  return threads.some((thread) => thread.isResolved !== true &&
+    thread.comments?.nodes?.some((comment) =>
+      isTrustedCodexLogin(comment.author?.login) ||
+      (comment.author?.__typename === "Bot" && comment.author.login === "chatgpt-codex-connector")));
 }

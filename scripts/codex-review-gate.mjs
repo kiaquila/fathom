@@ -3,6 +3,7 @@
 import { appendFileSync } from "node:fs";
 import {
   isAcceptableCodexSummaryComment,
+  hasUnresolvedCodexFindings,
   isStrictlyAfterCodexReviewRequest,
   latestCodexNativeReviewResult,
   latestCodexReviewRequestMarker,
@@ -50,6 +51,37 @@ async function listPaginated(path) {
   }
 }
 
+async function fetchReviewThreads() {
+  const threads = [];
+  let cursor = null;
+  do {
+    const response = await fetch("https://api.github.com/graphql", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        query: `query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+          repository(owner: $owner, name: $repo) { pullRequest(number: $number) {
+            reviewThreads(first: 100, after: $cursor) {
+              nodes { isResolved comments(first: 1) { nodes { author { __typename login } } } }
+              pageInfo { hasNextPage endCursor }
+            }
+          } }
+        }`,
+        variables: { owner, repo, number: Number(prNumber), cursor }
+      })
+    });
+    if (!response.ok) throw new Error(`Review threads: ${response.status}`);
+    const result = await response.json();
+    if (result.errors) throw new Error(`Review threads: ${JSON.stringify(result.errors)}`);
+    const page = result.data?.repository?.pullRequest?.reviewThreads;
+    if (!page?.nodes || !page.pageInfo) throw new Error("Missing review thread evidence.");
+    threads.push(...page.nodes);
+    cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+    if (page.pageInfo.hasNextPage && !cursor) throw new Error("Missing review thread cursor.");
+  } while (cursor);
+  return threads;
+}
+
 async function fetchPull() {
   return request(`/repos/${owner}/${repo}/pulls/${prNumber}`);
 }
@@ -74,10 +106,14 @@ async function fetchEvidence() {
   }
   if (!requestMarker) return "missing_marker";
 
-  const [reviews, reviewComments] = await Promise.all([
+  const [reviews, reviewComments, threads] = await Promise.all([
     listPaginated(`/repos/${owner}/${repo}/pulls/${prNumber}/reviews`),
-    listPaginated(`/repos/${owner}/${repo}/pulls/${prNumber}/comments`)
+    listPaginated(`/repos/${owner}/${repo}/pulls/${prNumber}/comments`),
+    fetchReviewThreads()
   ]);
+  // A fresh request must never erase a blocking review or unresolved finding.
+  if (hasUnresolvedCodexFindings(threads) ||
+      latestCodexNativeReviewResult(reviews, reviewComments, headSha) === "fail") return "fail";
   const reviewsAfterRequest = reviews.filter((review) =>
     isStrictlyAfterCodexReviewRequest(review.submitted_at, requestMarker)
   );
@@ -128,9 +164,17 @@ while (Date.now() - started <= maxWaitMs) {
   await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, remaining)));
 }
 
+if (outcome === "stale" && requireHeadMatch) {
+  console.error(`Codex Review failed: selected head ${headSha} moved during evaluation.`);
+  process.exit(1);
+}
 if (outcome === "stale") {
   console.log(`Codex Review skipped stale run for ${headSha}; PR head moved.`);
   process.exit(0);
+}
+if (outcome === "pass" && !await currentHeadMatches()) {
+  console.error(`Codex Review failed: PR head changed while evaluating ${headSha}.`);
+  process.exit(1);
 }
 if (outcome === "pass") {
   console.log(`Codex Review passed for ${headSha}.`);

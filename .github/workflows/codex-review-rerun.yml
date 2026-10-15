@@ -11,6 +11,11 @@ permissions:
   contents: read
   pull-requests: read
 
+# Serialize evidence updates for one PR; a pending update coalesces older ones.
+concurrency:
+  group: codex-review-rerun-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   codex-review-rerun:
     name: codex-review-rerun
@@ -22,7 +27,11 @@ jobs:
       (
         github.event.issue.pull_request &&
         github.event.comment.user.login == 'chatgpt-codex-connector[bot]' &&
-        startsWith(github.event.comment.body, 'Codex Review:')
+        (
+          startsWith(github.event.comment.body, 'Codex Review:') ||
+          startsWith(github.event.comment.body, '<!-- codex-review-receipt:v1 -->') ||
+          startsWith(github.event.comment.body, '<!-- codex-pull-request-review-summary -->')
+        )
       )
     runs-on: ubuntu-latest
     timeout-minutes: 5
