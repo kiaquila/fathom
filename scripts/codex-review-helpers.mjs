@@ -188,7 +188,7 @@ export function isAcceptableCodexSummaryComment(comment, headSha, requestedAt, s
 
   // Only the observed receipt envelope is evidence. The mutable structured
   // activity summary is a wakeup signal, not a no-findings verdict.
-  if ((body.match(/codex-review-receipt/g) || []).length > 1 ||
+  if ((body.match(/codex-review-receipt/gi) || []).length > 1 ||
       /codex-(?:review-state|pull-request-review-summary)/i.test(body) ||
       (body.match(/\*\*Reviewed commit:/g) || []).length !== 1 ||
       containsBlockingCodexSeverity(body)) return false;
@@ -206,8 +206,9 @@ export function isAcceptableCodexSummaryComment(comment, headSha, requestedAt, s
     /^Codex Review: Didn't find any major issues\.([^\r\n]*)\r?\n\s*\r?\n\*\*Reviewed commit:\*\* +`([a-f0-9]{10}|[a-f0-9]{40})`$/i
   );
   if (!match) return false;
-  // Native receipts may append encouragement or emoji, never another verdict.
-  if (!/^(?:\s|Keep it up!|:[a-z_]+:|\p{Extended_Pictographic}|\uFE0F|\u200D)*$/u.test(match[1])) return false;
+  // Native encouragement varies. Preserve it without accepting a second,
+  // contradictory verdict after the explicit no-major-issues sentence.
+  if (/\b(?:issues?|findings?|unresolved|regressions?|incomplete|failed|failure|pending|cancelled|in[_ -]?progress|not (?:reviewed|completed))\b/i.test(match[1])) return false;
   return match[2].toLowerCase() === shortSha.toLowerCase() ||
     match[2].toLowerCase() === headSha.toLowerCase();
 }

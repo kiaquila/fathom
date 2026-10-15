@@ -36,6 +36,8 @@ const comment = (body = receipt) => ({
 test("observed native receipt and legacy verdict retain exact commit binding", () => {
   for (const body of [receipt, receipt.replace("<!-- codex-review-receipt:v1 -->\n\n", ""),
     receipt.replace(":rocket:", "Keep it up!"),
+    // Observed on this PR's native receipt, not a fixed set of encouragement.
+    receipt.replace(":rocket:", "What shall we delve into next?"),
     receipt + "\n\n<details> <summary>About Codex in GitHub</summary>\nHelp\n</details>",
     receipt.replace("`2667f79cd7`", `\`${headSha}\``)]) {
     assert.equal(isAcceptableCodexSummaryComment(comment(body), headSha, requestedAt, "20"), true, body);
