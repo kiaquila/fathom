@@ -35,7 +35,8 @@ The mutable activity summary is only a wakeup signal: its JSON, timestamps,
 have been created before the latest request; routing does not filter on its
 creation time. Passing still requires a qualifying receipt or formal review.
 
-Evidence events are serialized per PR. An active gate finishes before requeue;
+Request and evidence jobs share a per-PR queue with `queue: max`, preserving
+pending jobs rather than replacing them. An active gate finishes before requeue;
 a successful run started after the evidence update needs no
 duplicate rerun. The rerun helper rechecks the live PR head after waiting, and
 the gate rechecks it after collecting evidence. Workflow completion events do

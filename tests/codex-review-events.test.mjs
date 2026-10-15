@@ -82,9 +82,10 @@ test("created and edited native events pass both workflow and runtime routing", 
   assert.match(workflow, /issue_comment:\n    types: \[created, edited\]/);
   assert.doesNotMatch(workflow, /^concurrency:/m);
   assert.match(workflow, /^    concurrency:/m);
-  assert.match(workflow, /cancel-in-progress: false/);
+  assert.match(workflow, /queue: max\n      cancel-in-progress: false/);
   const requestWorkflow = readFileSync(new URL("../.github/workflows/codex-review-request.yml", import.meta.url), "utf8");
   assert.match(requestWorkflow, /^    concurrency:/m);
+  assert.match(requestWorkflow, /queue: max\n      cancel-in-progress: false/);
   assert.match(requestWorkflow, /group: codex-review-rerun-\$\{\{ github.event.issue.number \}\}/);
   assert.match(workflow, /ref: \$\{\{ github.event.repository.default_branch \}\}/);
   for (const action of ["created", "edited"]) {
