@@ -1,5 +1,21 @@
 const TRUSTED_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 const CODEX_REVIEW_LOGIN = "chatgpt-codex-connector[bot]";
+// Observed native encouragement, including legacy receipts in this repository.
+// Unknown prose must not turn a contradictory verdict into approval.
+const CODEX_RECEIPT_ENCOURAGEMENTS = new Set([
+  "Another round soon, please!",
+  "Delightful!",
+  "Chef's kiss.",
+  "You're on a roll.",
+  "Can't wait for the next one!",
+  "What shall we delve into next?",
+  "Breezy!",
+  "Already looking forward to the next diff.",
+  "More of your lovely PRs please.",
+  "Keep them coming!",
+  "Keep it up!",
+  "Hooray!"
+]);
 
 function normalize(value) {
   return String(value || "").trim().toLowerCase();
@@ -206,9 +222,9 @@ export function isAcceptableCodexSummaryComment(comment, headSha, requestedAt, s
     /^Codex Review: Didn't find any major issues\.([^\r\n]*)\r?\n\s*\r?\n\*\*Reviewed commit:\*\* +`([a-f0-9]{10}|[a-f0-9]{40})`$/i
   );
   if (!match) return false;
-  // Native encouragement varies. Preserve it without accepting a second,
-  // contradictory verdict after the explicit no-major-issues sentence.
-  if (/\b(?:issues?|findings?|unresolved|regressions?|incomplete|failed|failure|pending|cancelled|in[_ -]?progress|not (?:reviewed|completed))\b/i.test(match[1])) return false;
+  const suffix = match[1].trim();
+  if (!CODEX_RECEIPT_ENCOURAGEMENTS.has(suffix) &&
+      !/^(?:\s|:[a-z0-9_+-]+:|\p{Extended_Pictographic}|\p{Emoji_Modifier}|\uFE0F|\u200D)*$/u.test(suffix)) return false;
   return match[2].toLowerCase() === shortSha.toLowerCase() ||
     match[2].toLowerCase() === headSha.toLowerCase();
 }

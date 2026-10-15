@@ -37,7 +37,10 @@ test("observed native receipt and legacy verdict retain exact commit binding", (
   for (const body of [receipt, receipt.replace("<!-- codex-review-receipt:v1 -->\n\n", ""),
     receipt.replace(":rocket:", "Keep it up!"),
     // Observed on this PR's native receipt, not a fixed set of encouragement.
-    receipt.replace(":rocket:", "What shall we delve into next?"),
+    ...["What shall we delve into next?", "Another round soon, please!", "Delightful!",
+      "Chef's kiss.", "You're on a roll.", "Can't wait for the next one!", "Breezy!",
+      "Already looking forward to the next diff.", "More of your lovely PRs please.",
+      "Keep them coming!", "Hooray!", ":+1:", ":tada:", "🚀"].map(suffix => receipt.replace(":rocket:", suffix)),
     receipt + "\n\n<details> <summary>About Codex in GitHub</summary>\nHelp\n</details>",
     receipt.replace("`2667f79cd7`", `\`${headSha}\``)]) {
     assert.equal(isAcceptableCodexSummaryComment(comment(body), headSha, requestedAt, "20"), true, body);
@@ -52,6 +55,9 @@ test("observed native receipt and legacy verdict retain exact commit binding", (
     receipt.replace("Didn't find any major issues.", "Completed"),
     receipt + "\nP1: blocking finding", receipt + "\nReview incomplete",
     receipt.replace(":rocket:", "But there are unresolved findings."),
+    receipt.replace(":rocket:", "However, I found a serious bug."),
+    receipt.replace(":rocket:", "Delightful! However, I found a serious bug."),
+    receipt.replace(":rocket:", "Unknown prose."),
     receipt + "\n**Reviewed commit:** `0000000000`",
     receipt + "\n<!-- codex-review-receipt:v1 -->",
     receipt.replace("receipt:v1", "receipt:v2"),

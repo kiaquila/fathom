@@ -24,6 +24,8 @@ human must post `@codex review <current-full-head-sha>`; only the exact
 `chatgpt-codex-connector[bot]` identity supplies native review evidence. Legacy
 no-findings comments and the `codex-review-receipt:v1` envelope require an explicit
 positive verdict, a matching reviewed commit, and creation after that request.
+Receipt endings allow the neutral encouragement observed in this repository or
+emoji; unknown prose fails closed rather than hiding a contradictory verdict.
 Formal reviews retain their current-head and P0–P2 policy. A new request cannot
 clear a blocking review, and unresolved Codex review threads block regardless of
 severity or the commit on which they were created.
