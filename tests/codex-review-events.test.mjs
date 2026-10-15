@@ -68,7 +68,7 @@ test("observed native receipt and legacy verdict retain exact commit binding", (
 });
 
 const workflow = readFileSync(new URL("../.github/workflows/codex-review-rerun.yml", import.meta.url), "utf8");
-const jobIf = workflow.match(/    if: \|\n([\s\S]*?)    runs-on:/)?.[1];
+const jobIf = workflow.match(/    if: \|\n([\s\S]*?)(?:    # Only eligible|    runs-on:)/)?.[1];
 function workflowRoutes(event, eventName = "issue_comment") {
   const github = { event_name: eventName, event: { issue: {}, comment: { user: {} },
     review: { user: {} }, ...event } };
@@ -80,7 +80,12 @@ function workflowRoutes(event, eventName = "issue_comment") {
 
 test("created and edited native events pass both workflow and runtime routing", () => {
   assert.match(workflow, /issue_comment:\n    types: \[created, edited\]/);
+  assert.doesNotMatch(workflow, /^concurrency:/m);
+  assert.match(workflow, /^    concurrency:/m);
   assert.match(workflow, /cancel-in-progress: false/);
+  const requestWorkflow = readFileSync(new URL("../.github/workflows/codex-review-request.yml", import.meta.url), "utf8");
+  assert.match(requestWorkflow, /^    concurrency:/m);
+  assert.match(requestWorkflow, /group: codex-review-rerun-\$\{\{ github.event.issue.number \}\}/);
   assert.match(workflow, /ref: \$\{\{ github.event.repository.default_branch \}\}/);
   for (const action of ["created", "edited"]) {
     for (const body of [receipt, "Codex Review: Didn't find any major issues.", summary,

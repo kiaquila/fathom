@@ -11,11 +11,6 @@ permissions:
   contents: read
   pull-requests: read
 
-# Serialize evidence updates for one PR; a pending update coalesces older ones.
-concurrency:
-  group: codex-review-rerun-${{ github.event.issue.number || github.event.pull_request.number }}
-  cancel-in-progress: false
-
 jobs:
   codex-review-rerun:
     name: codex-review-rerun
@@ -33,6 +28,11 @@ jobs:
           startsWith(github.event.comment.body, '<!-- codex-pull-request-review-summary -->')
         )
       )
+    # Only eligible evidence jobs acquire this group; unrelated comments must
+    # not replace a pending evidence update. The request workflow shares it.
+    concurrency:
+      group: codex-review-rerun-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
