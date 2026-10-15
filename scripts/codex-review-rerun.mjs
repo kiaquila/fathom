@@ -17,7 +17,8 @@ const MAX_ACTIVE_RUN_POLLS = 24;
 export function shouldRouteCodexReviewRerunEvent(event) {
   if (event?.review) return isTrustedCodexLogin(event.review.user?.login);
   if (!event?.issue?.pull_request || !event?.comment) return false;
-  return /^Codex Review:/i.test(String(event.comment.body || "")) &&
+  return /^(?:Codex Review:|<!-- codex-review-receipt:v1 -->|<!-- codex-pull-request-review-summary -->)/i
+    .test(String(event.comment.body || "")) &&
     isTrustedCodexLogin(event.comment.user?.login);
 }
 
@@ -62,6 +63,8 @@ export async function rerunCodexReviewForHead({
   token,
   repository,
   headSha,
+  pullRequestNumber,
+  evidenceUpdatedAt,
   request = defaultRequest,
   sleep = defaultSleep,
   maxActiveRunPolls = MAX_ACTIVE_RUN_POLLS
@@ -87,6 +90,19 @@ export async function rerunCodexReviewForHead({
     );
   }
 
+  if (pullRequestNumber) {
+    const pull = await request(token, repository, `/repos/${owner}/${repo}/pulls/${pullRequestNumber}`);
+    if (pull.head?.sha !== headSha) {
+      return { action: "stale", run: null, message: `PR head moved away from ${headSha}; no rerun requested.` };
+    }
+  }
+
+  if (selected.action === "rerun" && selected.run.conclusion === "success" &&
+      Date.parse(selected.run.run_started_at || "") > Date.parse(evidenceUpdatedAt || "")) {
+    return { action: "already_evaluated", run: selected.run,
+      message: `Codex Review run ${selected.run.id} already evaluated this evidence update.` };
+  }
+
   if (selected.action === "rerun") {
     await request(
       token,
@@ -100,7 +116,6 @@ export async function rerunCodexReviewForHead({
     };
   }
 
-  const runId = selected.run?.id ? ` run ${selected.run.id}` : "";
   const messages = {
     not_found: `No completed Codex Review pull_request run found for ${headSha}.`
   };
@@ -108,15 +123,15 @@ export async function rerunCodexReviewForHead({
 }
 
 async function resolveHeadSha({ token, repository, event, request = defaultRequest }) {
-  if (event?.pull_request?.head?.sha) return event.pull_request.head.sha;
-  if (!event?.issue?.pull_request || !event?.issue?.number) {
+  const number = event?.pull_request?.number || (event?.issue?.pull_request && event.issue.number);
+  if (!number) {
     throw new Error("Could not resolve pull request from event.");
   }
   const [owner, repo] = repository.split("/");
   const pull = await request(
     token,
     repository,
-    `/repos/${owner}/${repo}/pulls/${event.issue.number}`
+    `/repos/${owner}/${repo}/pulls/${number}`
   );
   return pull.head?.sha;
 }
@@ -136,7 +151,11 @@ async function main() {
   }
 
   const headSha = await resolveHeadSha({ token, repository, event });
-  const result = await rerunCodexReviewForHead({ token, repository, headSha });
+  const result = await rerunCodexReviewForHead({
+    token, repository, headSha,
+    pullRequestNumber: event.pull_request?.number || event.issue?.number,
+    evidenceUpdatedAt: event.review?.submitted_at || event.comment?.updated_at || event.comment?.created_at
+  });
   console.log(result.message);
 }
 

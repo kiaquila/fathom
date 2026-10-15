@@ -18,6 +18,10 @@ jobs:
       github.event.comment.user.type != 'Bot' &&
       contains(github.event.comment.body, '@codex') &&
       contains(github.event.comment.body, 'review')
+    concurrency:
+      group: codex-review-rerun-${{ github.event.issue.number }}
+      queue: max
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

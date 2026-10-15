@@ -59,14 +59,17 @@ async function main() {
     requestedAt
   });
 
-  await request(`/repos/${owner}/${repo}/issues/${event.issue.number}/comments`, {
+  const marker = await request(`/repos/${owner}/${repo}/issues/${event.issue.number}/comments`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ body: markerBody })
   });
 
   try {
-    const result = await rerunCodexReviewForHead({ token, repository, headSha });
+    const result = await rerunCodexReviewForHead({
+      token, repository, headSha, pullRequestNumber: event.issue.number,
+      evidenceUpdatedAt: marker.created_at
+    });
     console.log(result.message);
   } catch (error) {
     console.warn(`Marker recorded, but Codex Review rerun could not be requested: ${error.message}`);

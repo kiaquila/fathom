@@ -36,7 +36,7 @@ const {
 } = rerun;
 const { checkRunPayload, publishCodexReviewCheck } = publisher;
 
-const headSha = "abc123def456";
+const headSha = "abc123def456" + "a".repeat(28);
 const codexUser = { login: "chatgpt-codex-connector[bot]" };
 
 function markerBody() {
