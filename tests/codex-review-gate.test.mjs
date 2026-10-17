@@ -30,8 +30,8 @@ const {
   latestTrustedCodexReviewCommand
 } = helpers;
 const {
-  rerunCodexReviewForHead,
-  selectCodexReviewRun,
+  dispatchCodexReviewForHead,
+  selectTrustedCodexReviewRun,
   shouldRouteCodexReviewRerunEvent
 } = rerun;
 const { checkRunPayload, publishCodexReviewCheck } = publisher;
@@ -186,7 +186,7 @@ test("native Codex reviews are current-head and P0-P2 blocking", () => {
   );
 });
 
-test("manual trusted validation publishes a head-bound check result", async () => {
+test("trusted policy validation publishes a head-bound check result", async () => {
   const requests = [];
   const request = async (url, options) => {
     requests.push({ url, options });
@@ -211,7 +211,7 @@ test("manual trusted validation publishes a head-bound check result", async () =
     details_url: "https://github.com/owner/repo/actions/runs/1",
     output: {
       title: "Codex Review passed",
-      summary: `Trusted manual validation passed for ${"a".repeat(40)}.`
+      summary: `Trusted policy validation passed for ${"a".repeat(40)}.`
     }
   });
   assert.throws(
@@ -313,20 +313,22 @@ test("rerun routing accepts only exact trusted Codex evidence", () => {
   );
 });
 
-test("rerun selection is head-bound and waits for active runs before rerunning", () => {
-  const failed = {
-    id: 30,
-    event: "pull_request",
-    head_sha: headSha,
-    status: "completed",
-    conclusion: "failure",
-    created_at: "2026-08-05T12:00:00Z"
-  };
-  assert.deepEqual(selectCodexReviewRun([failed], headSha), { action: "rerun", run: failed });
+const selector = { headSha, pullRequestNumber: 7, defaultBranch: "main" };
+const trustedRun = (overrides = {}) => ({
+  id: 30, event: "workflow_dispatch", head_branch: "main",
+  head_sha: "b".repeat(40), // Policy commit, intentionally different from the PR.
+  display_title: `Codex Review #7 @ ${headSha}`,
+  status: "completed", conclusion: "failure",
+  created_at: "2026-08-05T12:00:00Z", ...overrides
+});
+
+test("dispatch selection binds default-branch runs to both PR number and proposed SHA", () => {
+  const failed = trustedRun();
+  assert.deepEqual(selectTrustedCodexReviewRun([failed], selector), { action: "dispatch", run: failed });
   const succeeded = { ...failed, conclusion: "success" };
   assert.deepEqual(
-    selectCodexReviewRun([succeeded], headSha),
-    { action: "rerun", run: succeeded },
+    selectTrustedCodexReviewRun([succeeded], selector),
+    { action: "dispatch", run: succeeded },
     "fresh trusted evidence must re-evaluate a previously successful gate run"
   );
   const active = {
@@ -337,28 +339,26 @@ test("rerun selection is head-bound and waits for active runs before rerunning",
     created_at: "2026-08-05T12:01:00Z"
   };
   assert.deepEqual(
-    selectCodexReviewRun([failed, active], headSha),
-    { action: "wait_for_active_then_rerun", run: active }
+    selectTrustedCodexReviewRun([failed, active], selector),
+    { action: "wait_for_active_then_dispatch", run: active }
   );
-  assert.deepEqual(selectCodexReviewRun([failed], "new-head"), {
-    action: "not_found",
-    run: null
-  });
+  for (const unrelated of [
+    trustedRun({ event: "pull_request", head_sha: headSha }),
+    trustedRun({ head_branch: "candidate" }),
+    trustedRun({ display_title: `Codex Review #8 @ ${headSha}` }),
+    trustedRun({ display_title: `Codex Review #7 @ ${"c".repeat(40)}` }),
+    trustedRun({ display_title: `Codex Review #7 @ ${headSha} extra` })
+  ]) assert.deepEqual(selectTrustedCodexReviewRun([unrelated], selector), { action: "not_found", run: null });
 });
 
-test("rerun helper waits for an active gate before rerunning it", async () => {
+test("dispatch helper waits for an active gate and requests a fresh trusted workflow", async () => {
   const calls = [];
-  const active = {
-    id: 42,
-    event: "pull_request",
-    head_sha: headSha,
-    status: "in_progress",
-    conclusion: null,
-    created_at: "2026-08-05T12:00:00Z"
-  };
+  const active = trustedRun({ id: 42, status: "in_progress", conclusion: null });
   let readCount = 0;
   const request = async (_token, _repository, path, options = {}) => {
-    calls.push({ path, method: options.method || "GET" });
+    calls.push({ path, method: options.method || "GET", body: options.body });
+    if (path === "/repos/owner/repo") return { default_branch: "main" };
+    if (path.endsWith("/pulls/7")) return { state: "open", head: { sha: headSha } };
     if (path.includes("/actions/workflows/codex-review.yml/runs")) {
       readCount += 1;
       return {
@@ -369,56 +369,69 @@ test("rerun helper waits for an active gate before rerunning it", async () => {
         }]
       };
     }
-    return null;
+    if (options.method === "POST") return null;
+    throw new Error(`Unexpected API: ${path}`);
   };
 
-  const result = await rerunCodexReviewForHead({
+  const result = await dispatchCodexReviewForHead({
     token: "token",
     repository: "owner/repo",
     headSha,
+    pullRequestNumber: 7,
     request,
     sleep: async () => {}
   });
 
-  assert.equal(result.action, "rerun");
-  assert.equal(calls.filter(({ method }) => method === "GET").length, 2);
-  assert.deepEqual(calls.at(-1), {
-    path: "/repos/owner/repo/actions/runs/42/rerun",
-    method: "POST"
-  });
+  assert.equal(result.action, "dispatched");
+  assert.equal(readCount, 2);
+  assert.equal(calls.at(-2).path, "/repos/owner/repo/pulls/7");
+  assert.equal(calls.at(-1).path, "/repos/owner/repo/actions/workflows/codex-review.yml/dispatches");
+  assert.deepEqual(JSON.parse(calls.at(-1).body), { ref: "main", inputs: { pr_number: "7", head_sha: headSha } });
 });
 
-test("rerun helper calls the Actions endpoint for a failed head-bound run", async () => {
+test("dispatch starts without a prior PR run and resolves the live default branch", async () => {
   const calls = [];
   const request = async (_token, _repository, path, options = {}) => {
-    calls.push({ path, method: options.method || "GET" });
+    calls.push({ path, method: options.method || "GET", body: options.body });
+    if (path === "/repos/owner/repo") return { default_branch: "release/v1" };
+    if (path.endsWith("/pulls/7")) return { state: "open", head: { sha: headSha } };
     if (path.includes("/actions/workflows/codex-review.yml/runs")) {
-      return {
-        workflow_runs: [{
-          id: 42,
-          event: "pull_request",
-          head_sha: headSha,
-          status: "completed",
-          conclusion: "failure",
-          created_at: "2026-08-05T12:00:00Z"
-        }]
-      };
+      assert.match(path, /event=workflow_dispatch&branch=release%2Fv1&per_page=100$/);
+      return { workflow_runs: [] };
     }
     return null;
   };
 
-  const result = await rerunCodexReviewForHead({
+  const result = await dispatchCodexReviewForHead({
     token: "token",
     repository: "owner/repo",
     headSha,
+    pullRequestNumber: 7,
     request
   });
-  assert.equal(result.action, "rerun");
-  assert.deepEqual(calls, [
-    {
-      path: `/repos/owner/repo/actions/workflows/codex-review.yml/runs?event=pull_request&head_sha=${headSha}&per_page=100`,
-      method: "GET"
-    },
-    { path: "/repos/owner/repo/actions/runs/42/rerun", method: "POST" }
-  ]);
+  assert.equal(result.action, "dispatched");
+  assert.deepEqual(JSON.parse(calls.at(-1).body), {
+    ref: "release/v1", inputs: { pr_number: "7", head_sha: headSha }
+  });
+});
+
+test("closed PRs, active timeouts and invalid dispatch inputs cannot send a request", async () => {
+  const posts = [];
+  const request = async (_token, _repo, path, options = {}) => {
+    if (options.method === "POST") posts.push(path);
+    if (path === "/repos/owner/repo") return { default_branch: "main" };
+    if (path.endsWith("/pulls/7")) return { state: "closed", head: { sha: headSha } };
+    return { workflow_runs: [] };
+  };
+  const options = { token: "test", repository: "owner/repo", headSha, pullRequestNumber: 7, request };
+  assert.equal((await dispatchCodexReviewForHead(options)).action, "stale");
+  await assert.rejects(dispatchCodexReviewForHead({ ...options, maxActiveRunPolls: 0,
+    request: async (_token, _repo, path) => path === "/repos/owner/repo"
+      ? { default_branch: "main" } : { workflow_runs: [trustedRun({ status: "queued" })] }
+  }), /remained active/);
+  for (const invalid of [{ headSha: "short" }, { pullRequestNumber: 0 }, { pullRequestNumber: "7.1" },
+    { repository: "owner/repo/extra" }]) {
+    await assert.rejects(dispatchCodexReviewForHead({ ...options, ...invalid }), /are required/);
+  }
+  assert.deepEqual(posts, []);
 });
