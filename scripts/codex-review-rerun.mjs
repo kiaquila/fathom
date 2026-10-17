@@ -22,18 +22,22 @@ export function shouldRouteCodexReviewRerunEvent(event) {
     isTrustedCodexLogin(event.comment.user?.login);
 }
 
-export function selectCodexReviewRun(runs = [], headSha) {
+export function selectTrustedCodexReviewRun(runs = [], { headSha, pullRequestNumber, defaultBranch }) {
+  // A dispatched run's head_sha belongs to the policy branch, not the PR.
+  // Bind it to the PR and proposed SHA through the workflow's exact run-name.
+  const title = `Codex Review #${pullRequestNumber} @ ${headSha}`;
   const matchingRuns = runs
-    .filter((run) => run.event === "pull_request" && run.head_sha === headSha)
+    .filter((run) => run.event === "workflow_dispatch" &&
+      run.head_branch === defaultBranch && run.display_title === title)
     .sort((left, right) =>
       Date.parse(right.created_at || "") - Date.parse(left.created_at || "")
     );
 
   const activeRun = matchingRuns.find((run) => ACTIVE_STATUSES.has(run.status));
-  if (activeRun) return { action: "wait_for_active_then_rerun", run: activeRun };
+  if (activeRun) return { action: "wait_for_active_then_dispatch", run: activeRun };
 
   const rerunnableRun = matchingRuns.find((run) => run.status === "completed");
-  if (rerunnableRun) return { action: "rerun", run: rerunnableRun };
+  if (rerunnableRun) return { action: "dispatch", run: rerunnableRun };
 
   return { action: "not_found", run: null };
 }
@@ -59,7 +63,7 @@ async function defaultRequest(token, repository, path, options = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-export async function rerunCodexReviewForHead({
+export async function dispatchCodexReviewForHead({
   token,
   repository,
   headSha,
@@ -69,57 +73,56 @@ export async function rerunCodexReviewForHead({
   sleep = defaultSleep,
   maxActiveRunPolls = MAX_ACTIVE_RUN_POLLS
 }) {
-  if (!token || !repository || !headSha) {
-    throw new Error("token, repository, and headSha are required to rerun Codex Review.");
+  if (!token || !/^[\w.-]+\/[\w.-]+$/.test(String(repository || "")) ||
+      !/^[a-f0-9]{40}$/i.test(String(headSha || "")) ||
+      !Number.isSafeInteger(Number(pullRequestNumber)) || Number(pullRequestNumber) < 1) {
+    throw new Error("token, owner/repo, a full headSha, and a positive pullRequestNumber are required.");
   }
 
   const [owner, repo] = repository.split("/");
-  const runsPath = `/repos/${owner}/${repo}/actions/workflows/codex-review.yml/runs?event=pull_request&head_sha=${encodeURIComponent(headSha)}&per_page=100`;
+  const repositoryData = await request(token, repository, `/repos/${owner}/${repo}`);
+  const defaultBranch = repositoryData?.default_branch;
+  if (!defaultBranch) throw new Error("Could not resolve the repository default branch.");
+  const selector = { headSha, pullRequestNumber, defaultBranch };
+  const runsPath = `/repos/${owner}/${repo}/actions/workflows/codex-review.yml/runs?event=workflow_dispatch&branch=${encodeURIComponent(defaultBranch)}&per_page=100`;
   let data = await request(token, repository, runsPath);
-  let selected = selectCodexReviewRun(data.workflow_runs || [], headSha);
+  let selected = selectTrustedCodexReviewRun(data.workflow_runs || [], selector);
 
-  for (let poll = 0; selected.action === "wait_for_active_then_rerun" && poll < maxActiveRunPolls; poll += 1) {
+  for (let poll = 0; selected.action === "wait_for_active_then_dispatch" && poll < maxActiveRunPolls; poll += 1) {
     await sleep(ACTIVE_RUN_POLL_INTERVAL_MS);
     data = await request(token, repository, runsPath);
-    selected = selectCodexReviewRun(data.workflow_runs || [], headSha);
+    selected = selectTrustedCodexReviewRun(data.workflow_runs || [], selector);
   }
 
-  if (selected.action === "wait_for_active_then_rerun") {
+  if (selected.action === "wait_for_active_then_dispatch") {
     throw new Error(
       `Codex Review run ${selected.run.id} remained active while waiting to evaluate new trusted evidence for ${headSha}.`
     );
   }
 
-  if (pullRequestNumber) {
-    const pull = await request(token, repository, `/repos/${owner}/${repo}/pulls/${pullRequestNumber}`);
-    if (pull.head?.sha !== headSha) {
-      return { action: "stale", run: null, message: `PR head moved away from ${headSha}; no rerun requested.` };
-    }
+  const pull = await request(token, repository, `/repos/${owner}/${repo}/pulls/${pullRequestNumber}`);
+  if (pull.state !== "open" || pull.head?.sha !== headSha) {
+    return { action: "stale", run: null, message: `PR is closed or its head moved away from ${headSha}; no dispatch requested.` };
   }
 
-  if (selected.action === "rerun" && selected.run.conclusion === "success" &&
+  if (selected.action === "dispatch" && selected.run.conclusion === "success" &&
       Date.parse(selected.run.run_started_at || "") > Date.parse(evidenceUpdatedAt || "")) {
     return { action: "already_evaluated", run: selected.run,
       message: `Codex Review run ${selected.run.id} already evaluated this evidence update.` };
   }
 
-  if (selected.action === "rerun") {
-    await request(
-      token,
-      repository,
-      `/repos/${owner}/${repo}/actions/runs/${selected.run.id}/rerun`,
-      { method: "POST" }
-    );
-    return {
-      ...selected,
-      message: `Requested Codex Review rerun for ${headSha} from run ${selected.run.id}.`
-    };
-  }
-
-  const messages = {
-    not_found: `No completed Codex Review pull_request run found for ${headSha}.`
-  };
-  return { ...selected, message: messages[selected.action] };
+  // Dispatch a fresh policy revision on the default branch. Rerunning an old
+  // workflow run would retain its historical workflow definition instead.
+  await request(token, repository,
+    `/repos/${owner}/${repo}/actions/workflows/codex-review.yml/dispatches`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ref: defaultBranch, inputs: {
+        pr_number: String(pullRequestNumber), head_sha: headSha
+      } })
+    });
+  return { action: "dispatched", run: selected.run,
+    message: `Dispatched trusted Codex Review for PR #${pullRequestNumber} at ${headSha}.` };
 }
 
 async function resolveHeadSha({ token, repository, event, request = defaultRequest }) {
@@ -151,7 +154,7 @@ async function main() {
   }
 
   const headSha = await resolveHeadSha({ token, repository, event });
-  const result = await rerunCodexReviewForHead({
+  const result = await dispatchCodexReviewForHead({
     token, repository, headSha,
     pullRequestNumber: event.pull_request?.number || event.issue?.number,
     evidenceUpdatedAt: event.review?.submitted_at || event.comment?.updated_at || event.comment?.created_at

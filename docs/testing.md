@@ -38,19 +38,37 @@ have been created before the latest request; routing does not filter on its
 creation time. Passing still requires a qualifying receipt or formal review.
 
 Request and evidence jobs share a per-PR queue with `queue: max`, preserving
-pending jobs rather than replacing them. An active gate finishes before requeue;
-a successful run started after the evidence update needs no
-duplicate rerun. The rerun helper rechecks the live PR head after waiting, and
-the gate rechecks it after collecting evidence. Workflow completion events do
-not trigger this path, so a rerun cannot recursively requeue itself.
+pending jobs rather than replacing them. Both dispatch `codex-review.yml` on the
+live repository default branch; no preceding PR workflow run is required. The
+publishing workflow accepts only default-branch dispatches, checks out that
+workflow's policy commit with no persisted Git credentials, and never checks
+out or executes proposed PR code. Native review still requires the trusted
+human request and actual qualifying evidence; dispatch itself is not approval.
 
-For the first deployment of an event-routing fix, the old default-branch router
-cannot recognize new prefixes. After the user-account request and actual native
-receipt or formal review arrive, rerun the existing PR gate or dispatch
+An active matching dispatch finishes before another is queued; a successful
+run started after the evidence update needs no duplicate dispatch. A dispatch
+run's `head_sha` identifies its policy commit, so selection checks the default
+branch plus the exact `Codex Review #<pr> @ <head-sha>` run name instead. The
+helper rechecks that the PR is open and its head is unchanged after waiting,
+and the gate rechecks the head after collecting evidence. A new dispatch uses
+the current default-branch workflow rather than rerunning a historical workflow
+definition. Workflow completion events do not trigger this path, so it cannot
+recursively dispatch itself.
+
+For the first deployment of routing or dispatch changes, the old default-branch
+router may not recognize new events or find the removed PR workflow run. After
+the user-account request and actual native receipt or formal review arrive,
+dispatch the existing
 `codex-review.yml` **on the default branch**, with `pr_number` and the exact
 `head_sha`. This uses the already trusted gate and publishes its actual result;
 it does not execute proposed policy with write permissions. Never use a PR-ref
 dispatch, fabricated check, protection change, or admin bypass to bootstrap it.
+
+Branch protection binds the required check to the GitHub Actions app, not a
+particular workflow file. This separation protects the normal review publisher
+from executing proposed code; it does not make the check name unforgeable by a
+different workflow with permission to publish checks. Workflow changes remain
+security-sensitive and require review.
 
 Run `node --test tests/codex-review-*.test.mjs` for receipt, event-filter,
 requeue, live-head race, and invoked-gate regression coverage, then run the full

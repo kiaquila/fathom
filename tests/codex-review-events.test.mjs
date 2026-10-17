@@ -10,7 +10,7 @@ import {
   isAcceptableCodexSummaryComment
 } from "../scripts/codex-review-helpers.mjs";
 import {
-  rerunCodexReviewForHead,
+  dispatchCodexReviewForHead,
   shouldRouteCodexReviewRerunEvent
 } from "../scripts/codex-review-rerun.mjs";
 
@@ -124,14 +124,16 @@ test("created and edited native events pass both workflow and runtime routing", 
 test("reruns coalesce evidence already evaluated by a later run", async () => {
   let polls = 0;
   const posts = [];
-  const result = await rerunCodexReviewForHead({
+  const result = await dispatchCodexReviewForHead({
     token: "test", repository: "owner/repo", headSha, pullRequestNumber: 1,
     evidenceUpdatedAt: requestedAt,
     sleep: async () => {},
     request: async (_token, _repo, path, options = {}) => {
       if (options.method === "POST") posts.push(path);
-      if (path.endsWith("/pulls/1")) return { head: { sha: headSha } };
-      return { workflow_runs: [{ id: 42, event: "pull_request", head_sha: headSha,
+      if (path === "/repos/owner/repo") return { default_branch: "main" };
+      if (path.endsWith("/pulls/1")) return { state: "open", head: { sha: headSha } };
+      return { workflow_runs: [{ id: 42, event: "workflow_dispatch", head_branch: "main",
+        display_title: `Codex Review #1 @ ${headSha}`,
         status: ++polls === 1 ? "in_progress" : "completed", conclusion: "success",
         run_started_at: "2026-10-15T12:00:01Z" }] };
     }
@@ -143,13 +145,15 @@ test("reruns coalesce evidence already evaluated by a later run", async () => {
 test("a push while the old gate is active prevents requeue of the obsolete head", async () => {
   let polls = 0;
   const posts = [];
-  const result = await rerunCodexReviewForHead({
+  const result = await dispatchCodexReviewForHead({
     token: "test", repository: "owner/repo", headSha, pullRequestNumber: 1,
     sleep: async () => {},
     request: async (_token, _repo, path, options = {}) => {
       if (options.method === "POST") posts.push(path);
-      if (path.endsWith("/pulls/1")) return { head: { sha: "b".repeat(40) } };
-      return { workflow_runs: [{ id: 42, event: "pull_request", head_sha: headSha,
+      if (path === "/repos/owner/repo") return { default_branch: "main" };
+      if (path.endsWith("/pulls/1")) return { state: "open", head: { sha: "b".repeat(40) } };
+      return { workflow_runs: [{ id: 42, event: "workflow_dispatch", head_branch: "main",
+        display_title: `Codex Review #1 @ ${headSha}`,
         status: ++polls === 1 ? "in_progress" : "completed" }] };
     }
   });
@@ -158,6 +162,21 @@ test("a push while the old gate is active prevents requeue of the obsolete head"
 });
 
 const root = resolve(import.meta.dirname, "..");
+test("the publishing workflow checks out only its default-branch policy commit", () => {
+  const gate = readFileSync(new URL("../.github/workflows/codex-review.yml", import.meta.url), "utf8");
+  assert.match(gate, /on:\n  workflow_dispatch:/);
+  assert.doesNotMatch(gate, /^  pull_request:/m);
+  assert.match(gate, /if: github\.ref == format\('refs\/heads\/\{0\}', github\.event\.repository\.default_branch\)/);
+  assert.match(gate, /ref: \$\{\{ github.sha \}\}/);
+  assert.match(gate, /persist-credentials: false/);
+  assert.doesNotMatch(gate, /Checkout proposed|ref: \$\{\{ inputs.head_sha|CODEX_REVIEW_BOOTSTRAP/);
+  assert.equal((gate.match(/uses: actions\/checkout@/g) || []).length, 1);
+  assert.match(gate, /run-name: "Codex Review #\$\{\{ inputs.pr_number \}\} @ \$\{\{ inputs.head_sha \}\}"/);
+  assert.match(gate, /CODEX_REVIEW_REQUIRE_HEAD_MATCH: "true"/);
+  assert.match(gate, /CODEX_REVIEW_CONCLUSION: \$\{\{ steps.gate.outcome == 'success' && 'success' \|\| 'failure' \}\}/);
+  assert.match(gate, /queue: max\n  cancel-in-progress: false/);
+});
+
 function runGate(overrides = {}) {
   const fixture = {
     headSha, comments: [{ id: 21, user: { login: "github-actions[bot]" },

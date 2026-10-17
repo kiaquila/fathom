@@ -16,6 +16,8 @@ View the live work at [fathom.ks-design.art](https://fathom.ks-design.art).
   Worker serves those static assets with security headers.
 - User-facing motion honors `prefers-reduced-motion`, and the controls use
   native accessible elements.
+- The required Codex Review check validates native review evidence using only
+  default-branch policy; see [testing](docs/testing.md) for the dispatch path.
 
 ## Structure
 

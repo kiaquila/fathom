@@ -27,8 +27,8 @@ export function checkRunPayload({ headSha, conclusion, detailsUrl }) {
     output: {
       title: passed ? "Codex Review passed" : "Codex Review failed",
       summary: passed
-        ? `Trusted manual validation passed for ${headSha}.`
-        : `Trusted manual validation failed for ${headSha}. See the workflow logs for the blocking evidence.`
+        ? `Trusted policy validation passed for ${headSha}.`
+        : `Trusted policy validation failed for ${headSha}. See the workflow logs for the blocking evidence.`
     }
   };
 }

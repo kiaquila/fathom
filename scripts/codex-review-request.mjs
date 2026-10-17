@@ -8,7 +8,7 @@ import {
   isCodexReviewCommandForHead,
   isTrustedAssociation
 } from "./codex-review-helpers.mjs";
-import { rerunCodexReviewForHead } from "./codex-review-rerun.mjs";
+import { dispatchCodexReviewForHead } from "./codex-review-rerun.mjs";
 
 async function main() {
   const token = process.env.GITHUB_TOKEN;
@@ -66,13 +66,13 @@ async function main() {
   });
 
   try {
-    const result = await rerunCodexReviewForHead({
+    const result = await dispatchCodexReviewForHead({
       token, repository, headSha, pullRequestNumber: event.issue.number,
       evidenceUpdatedAt: marker.created_at
     });
     console.log(result.message);
   } catch (error) {
-    console.warn(`Marker recorded, but Codex Review rerun could not be requested: ${error.message}`);
+    console.warn(`Marker recorded, but trusted Codex Review could not be dispatched: ${error.message}`);
   }
 
   console.log(`Trusted Codex review request recorded for ${headSha}.`);
