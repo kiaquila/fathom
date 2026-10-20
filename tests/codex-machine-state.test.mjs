@@ -74,3 +74,18 @@ test("unknown contrary prose never inherits earlier or equal-time clean proof", 
     assert.equal(evaluate([comment(body), comment(summary(), "2026-10-01T10:03:00Z")]), "pass", closing);
   }
 });
+
+test("security-only summary updates cannot renew an old code result for a new request", () => {
+  const repeated = { ...requestMarker, sourceCommentCreatedAt: "2026-10-01T10:03:00Z" };
+  for (const body of [summary(), summary().replace(/ <relative-time[^>]+>[^<]+<\/relative-time>/, "")]) {
+    const laterEdit = comment(body, "2026-10-01T10:01:00Z", { updated_at: "2026-10-01T10:04:00Z" });
+    assert.notEqual(evaluateCodexCommentEvidence([laterEdit], headSha, repeated), "pass");
+  }
+  const fresh = summary().replaceAll("2026-10-01T10:02:00Z", "2026-10-01T10:04:00Z");
+  assert.equal(evaluateCodexCommentEvidence([comment(fresh, "2026-10-01T10:04:00Z")], headSha, repeated), "pass");
+});
+test("strict receipts keep same-second source-comment ID ordering", () => {
+  const strict = receipt.replace("Swish!", ":rocket:");
+  assert.equal(evaluate([comment(strict, requestMarker.sourceCommentCreatedAt, { id: "2" })]), "pass");
+  assert.notEqual(evaluate([comment(strict, requestMarker.sourceCommentCreatedAt, { id: "1" })]), "pass");
+});

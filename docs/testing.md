@@ -76,3 +76,8 @@ security-sensitive and require review.
 Run `node --test tests/codex-review-*.test.mjs` for receipt, event-filter,
 requeue, live-head race, and invoked-gate regression coverage, then run the full
 `npm run preflight`.
+
+
+Structured approval also requires the visible code-review completion timestamp
+to be strictly newer than the trusted request. A security-only edit of the shared
+summary cannot renew an old code verdict; a missing completion time stays pending.

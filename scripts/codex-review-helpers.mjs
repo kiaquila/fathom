@@ -321,6 +321,16 @@ export function hasUnresolvedCodexFindings(threads = []) {
 // Machine snapshots cover the whole review. Legacy receipts stay strict;
 // opaque presentation contributes no positive review evidence.
 
+
+// The shared summary can be edited by security activity. Its server update
+// time alone cannot prove that code review ran for this particular request.
+function hasFreshCodeReviewCompletion(body, requestMarker) {
+  const row = withoutCodexHelpFooter(String(body)).match(/^\| 📝 \*\*Code Review\*\* \| ✅ \*\*Completed\*\* <relative-time datetime="([^"<>]+)">([^<>]+)<\/relative-time> \|/m);
+  const cutoff = requestMarker?.sourceCommentCreatedAt || requestMarker?.requestedAt || requestMarker?.commentCreatedAt;
+  return Boolean(row) && row[1] === row[2] && Number.isFinite(Date.parse(row[1])) &&
+    Number.isFinite(Date.parse(cutoff || "")) && Date.parse(row[1]) > Date.parse(cutoff);
+}
+
 export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, nativeResult = null, nativeTime = null) {
   const candidates = [];
   if (nativeResult) candidates.push({ result: nativeResult, time: Date.parse(nativeTime || "") });
@@ -337,7 +347,9 @@ export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, n
     if (structured) result = parseStructuredCodexSummary(body, headSha)?.result || "pending";
     else if (isAcceptableCodexSummaryComment(comment, headSha, cutoff, requestMarker.sourceCommentId)) result = "pass";
     else if (containsBlockingCodexSeverity(body)) result = "fail";
-    if (!isStrictlyAfterCodexReviewRequest(new Date(time).toISOString(), requestMarker) && result === "pass") result = "pending";
+    if (structured && result === "pass" &&
+        (!isStrictlyAfterCodexReviewRequest(new Date(time).toISOString(), requestMarker) ||
+         !hasFreshCodeReviewCompletion(body, requestMarker))) result = "pending";
     candidates.push({ result, time, structured });
   }
   const snapshots = candidates.filter((entry) => entry.structured);
