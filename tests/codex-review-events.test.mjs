@@ -326,6 +326,12 @@ This comment shows the latest Codex review activity on this pull request.
   const clean = { ...comment(render(state)), created_at: time(4), updated_at: time(4) };
   for (const body of [negative.body.replace(headSha, "b".repeat(40)), negative.body.replace('"has_any_findings":true', '"has_any_findings":true,"has_any_findings":true'), negative.body.replace(":v1", ":v2")])
     assert.equal(runGate({ comments: [marker, { ...negative, body }, clean] }).status, 0);
+  for (const section of ["code_review", "security_review"]) {
+    const value = { ...state, [section]: { ...state.code_review, has_any_findings: true, has_unresolved_findings: true } };
+    const editedNegative = { ...negative, body: render(value, time(1)).replaceAll(time(4), time(1)), updated_at: time(5) };
+    const fullClean = { ...negative, body: render(cleanState, time(4)), created_at: time(4), updated_at: time(4) };
+    assert.equal(runGate({ comments: [marker, editedNegative, fullClean] }).status, 0, section + " other-section edit cannot renew old finding");
+  }
   const codeNegative = { ...negative, body: render({ ...state, code_review: { ...state.code_review, has_any_findings: true, has_unresolved_findings: true } }) };
   assert.equal(runGate({ comments: [marker, codeNegative, positive], reviews: [native] }).status, 1);
   assert.equal(runGate({ comments: [marker, codeNegative, clean] }).status, 0);

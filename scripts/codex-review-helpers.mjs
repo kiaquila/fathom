@@ -339,6 +339,20 @@ function codeReviewCompletionTime(body, section = "Code Review") {
 // A request or code-only receipt cannot clear a typed finding from another
 // section. Only a newer independently clean snapshot with that section's own
 // canonical completion clock can retire the valid current-head finding.
+function structuredNegativeTime(comment, headSha) {
+  const observed = Date.parse(comment.updated_at || comment.created_at || "");
+  const state = parseStructuredCodexSummary(String(comment.body || "").trim(), headSha, true);
+  if (!state) return observed;
+  const times = [];
+  for (const [section, label] of [["code_review", "Code Review"], ["security_review", "Security Review"]]) {
+    const value = state[section];
+    if (value.commit_sha !== headSha || !(value.has_any_findings === true || value.has_unresolved_findings === true)) continue;
+    const completed = codeReviewCompletionTime(comment.body, label);
+    times.push(value.status === "completed" && Number.isFinite(completed) && completed <= observed + 999 ? Math.floor(completed / 1000) * 1000 : observed);
+  }
+  return times.length ? Math.max(...times) : observed;
+}
+
 function hasUnclearedStructuredFindings(snapshots, headSha) {
   const states = snapshots.map(({ comment, result }) => ({ comment, result,
     state: parseStructuredCodexSummary(String(comment.body || "").trim(), headSha, true),
@@ -348,7 +362,10 @@ function hasUnclearedStructuredFindings(snapshots, headSha) {
     const findings = states.filter(({ state }) => state[section].commit_sha === headSha &&
       (state[section].has_any_findings === true || state[section].has_unresolved_findings === true));
     if (!findings.length) continue;
-    const fence = Math.max(...findings.map(({ time }) => Math.floor(time / 1000)));
+    const fence = Math.max(...findings.map(({ comment, state, time }) => {
+      const completed = codeReviewCompletionTime(comment.body, label);
+      return Math.floor((state[section].status === "completed" && Number.isFinite(completed) && completed <= time + 999 ? completed : time) / 1000);
+    }));
     const cleared = states.some(({ comment, state, result, time }) => {
       const value = state[section];
       const completed = codeReviewCompletionTime(comment.body, label);
@@ -394,7 +411,7 @@ export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, n
     if (structured && result === "pass" &&
         (!isStrictlyAfterCodexReviewRequest(new Date(time).toISOString(), requestMarker) ||
          !hasFreshCodeReviewCompletion(body, requestMarker, comment.updated_at || comment.created_at))) result = "pending";
-    candidates.push({ result, time: structured && result === "pass" ? Math.floor(codeReviewCompletionTime(body) / 1000) * 1000 : time, snapshotTime: time, structured, comment });
+    candidates.push({ result, time: structured && result === "pass" ? Math.floor(codeReviewCompletionTime(body) / 1000) * 1000 : structured && result === "fail" ? structuredNegativeTime(comment, headSha) : time, snapshotTime: structured && result === "fail" ? structuredNegativeTime(comment, headSha) : time, structured, comment });
   }
   if (hasUnclearedStructuredFindings(candidates.filter((entry) => entry.structured), headSha)) return "pending";
   const snapshots = candidates.filter((entry) => entry.structured);
