@@ -38,7 +38,7 @@ test("machine proof is strict, fresh, exact-head and cannot erase newer bad stat
     summary() + "\n<!-- unknown -->", summary() + "\nP1: issue",
     summary({ ...state(), security_review: { ...state().code_review, status: "running" } }),
     summary({ ...state(), security_review: { ...state().code_review, has_any_findings: true } })]) {
-    assert.notEqual(evaluate([comment(summary(), "2026-10-01T10:01:00Z"), comment(body), comment(receipt, "2026-10-01T10:03:00Z")]), "pass", body);
+    assert.notEqual(evaluate([comment(summary().replaceAll("2026-10-01T10:02:00Z", "2026-10-01T10:01:00Z"), "2026-10-01T10:01:00Z"), comment(body), comment(receipt, "2026-10-01T10:03:00Z")]), "pass", body);
   }
   assert.notEqual(evaluate([comment(summary(), "2026-10-01T09:59:00Z"), comment(receipt)]), "pass");
   assert.notEqual(evaluate([comment(summary(), undefined, { user: { login: "spoof[bot]" } }), comment(receipt)]), "pass");
@@ -71,7 +71,7 @@ test("unknown contrary prose never inherits earlier or equal-time clean proof", 
     const body = receipt.replace("Swish!", closing);
     assert.notEqual(evaluate([comment(body), comment(summary())]), "pass", closing);
     assert.notEqual(evaluate([comment(summary()), comment(body, "2026-10-01T10:03:00Z")]), "pass", closing);
-    assert.equal(evaluate([comment(body), comment(summary(), "2026-10-01T10:03:00Z")]), "pass", closing);
+    assert.equal(evaluate([comment(body), comment(summary().replaceAll("2026-10-01T10:02:00Z", "2026-10-01T10:03:00Z"), "2026-10-01T10:03:00Z")]), "pass", closing);
   }
 });
 
@@ -88,4 +88,10 @@ test("strict receipts keep same-second source-comment ID ordering", () => {
   const strict = receipt.replace("Swish!", ":rocket:");
   assert.equal(evaluate([comment(strict, requestMarker.sourceCommentCreatedAt, { id: "2" })]), "pass");
   assert.notEqual(evaluate([comment(strict, requestMarker.sourceCommentCreatedAt, { id: "1" })]), "pass");
+});
+
+test("security-only edits do not advance a code verdict over intervening unknown prose", () => {
+  const edited = comment(summary(), "2026-10-01T10:02:00Z", { updated_at: "2026-10-01T10:04:00Z" });
+  assert.equal(evaluate([edited, comment(receipt, "2026-10-01T10:03:00Z")]), "pending");
+  assert.equal(evaluate([comment(summary().replaceAll("2026-10-01T10:02:00Z", "2026-10-01T10:05:00Z")), comment(receipt)]), "pending", "future row time cannot approve");
 });

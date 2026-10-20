@@ -324,11 +324,18 @@ export function hasUnresolvedCodexFindings(threads = []) {
 
 // The shared summary can be edited by security activity. Its server update
 // time alone cannot prove that code review ran for this particular request.
-function hasFreshCodeReviewCompletion(body, requestMarker) {
-  const row = withoutCodexHelpFooter(String(body)).match(/^\| 📝 \*\*Code Review\*\* \| ✅ \*\*Completed\*\* <relative-time datetime="([^"<>]+)">([^<>]+)<\/relative-time> \|/m);
-  const cutoff = requestMarker?.sourceCommentCreatedAt || requestMarker?.requestedAt || requestMarker?.commentCreatedAt;
-  return Boolean(row) && row[1] === row[2] && Number.isFinite(Date.parse(row[1])) &&
-    Number.isFinite(Date.parse(cutoff || "")) && Date.parse(row[1]) > Date.parse(cutoff);
+function codeReviewCompletionTime(body) {
+  const rows = [...withoutCodexHelpFooter(String(body)).matchAll(/^\| 📝 \*\*Code Review\*\* \| ✅ \*\*Completed\*\* <relative-time datetime="([^"<>]+)">([^<>]+)<\/relative-time> \|/gm)];
+  return rows.length === 1 && rows[0][1] === rows[0][2] ? Date.parse(rows[0][1]) : NaN;
+}
+
+function hasFreshCodeReviewCompletion(body, requestMarker, updatedAt) {
+  const time = codeReviewCompletionTime(body);
+  const cutoff = Date.parse(requestMarker?.sourceCommentCreatedAt || requestMarker?.requestedAt || requestMarker?.commentCreatedAt || "");
+  const snapshotTime = Date.parse(updatedAt || "");
+  // GitHub comment timestamps have second precision; row times retain fractions.
+  return Number.isFinite(time) && Number.isFinite(cutoff) && Number.isFinite(snapshotTime) &&
+    time > cutoff && time <= snapshotTime + 999;
 }
 
 export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, nativeResult = null, nativeTime = null) {
@@ -349,13 +356,13 @@ export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, n
     else if (containsBlockingCodexSeverity(body)) result = "fail";
     if (structured && result === "pass" &&
         (!isStrictlyAfterCodexReviewRequest(new Date(time).toISOString(), requestMarker) ||
-         !hasFreshCodeReviewCompletion(body, requestMarker))) result = "pending";
-    candidates.push({ result, time, structured });
+         !hasFreshCodeReviewCompletion(body, requestMarker, comment.updated_at || comment.created_at))) result = "pending";
+    candidates.push({ result, time: structured && result === "pass" ? codeReviewCompletionTime(body) : time, snapshotTime: time, structured });
   }
   const snapshots = candidates.filter((entry) => entry.structured);
   if (snapshots.length) {
-    const latest = Math.max(...snapshots.map((entry) => entry.time));
-    const current = snapshots.filter((entry) => entry.time === latest);
+    const latest = Math.max(...snapshots.map((entry) => entry.snapshotTime));
+    const current = snapshots.filter((entry) => entry.snapshotTime === latest);
     if (current.some((entry) => entry.result === "fail")) return "fail";
     if (current.some((entry) => entry.result !== "pass")) return "pending";
   }
