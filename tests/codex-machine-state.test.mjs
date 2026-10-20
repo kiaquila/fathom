@@ -95,3 +95,9 @@ test("security-only edits do not advance a code verdict over intervening unknown
   assert.equal(evaluate([edited, comment(receipt, "2026-10-01T10:03:00Z")]), "pending");
   assert.equal(evaluate([comment(summary().replaceAll("2026-10-01T10:02:00Z", "2026-10-01T10:05:00Z")), comment(receipt)]), "pending", "future row time cannot approve");
 });
+
+test("fractional machine times cannot outrun same-second receipts or requests", () => {
+  const fractional = summary().replaceAll("2026-10-01T10:02:00Z", "2026-10-01T10:02:00.500Z");
+  assert.equal(evaluate([comment(fractional), comment(receipt)]), "pending");
+  assert.equal(evaluateCodexCommentEvidence([comment(fractional)], headSha, { ...requestMarker, sourceCommentCreatedAt: "2026-10-01T10:02:00Z" }), "pending");
+});

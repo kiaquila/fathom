@@ -81,3 +81,7 @@ requeue, live-head race, and invoked-gate regression coverage, then run the full
 Structured approval also requires the visible code-review completion timestamp
 to be strictly newer than the trusted request. A security-only edit of the shared
 summary cannot renew an old code verdict; a missing completion time stays pending.
+
+Positive machine evidence is ordered by code completion time in whole-second
+buckets, matching GitHub comment precision. Same-second request or pending
+evidence remains blocking; security-only edits cannot advance that order.

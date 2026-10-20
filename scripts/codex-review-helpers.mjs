@@ -335,7 +335,7 @@ function hasFreshCodeReviewCompletion(body, requestMarker, updatedAt) {
   const snapshotTime = Date.parse(updatedAt || "");
   // GitHub comment timestamps have second precision; row times retain fractions.
   return Number.isFinite(time) && Number.isFinite(cutoff) && Number.isFinite(snapshotTime) &&
-    time > cutoff && time <= snapshotTime + 999;
+    Math.floor(time / 1000) > Math.floor(cutoff / 1000) && time <= snapshotTime + 999;
 }
 
 export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, nativeResult = null, nativeTime = null) {
@@ -357,7 +357,7 @@ export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, n
     if (structured && result === "pass" &&
         (!isStrictlyAfterCodexReviewRequest(new Date(time).toISOString(), requestMarker) ||
          !hasFreshCodeReviewCompletion(body, requestMarker, comment.updated_at || comment.created_at))) result = "pending";
-    candidates.push({ result, time: structured && result === "pass" ? codeReviewCompletionTime(body) : time, snapshotTime: time, structured });
+    candidates.push({ result, time: structured && result === "pass" ? Math.floor(codeReviewCompletionTime(body) / 1000) * 1000 : time, snapshotTime: time, structured });
   }
   const snapshots = candidates.filter((entry) => entry.structured);
   if (snapshots.length) {
