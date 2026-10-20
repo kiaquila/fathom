@@ -301,3 +301,32 @@ test("the actual gate dates unknown edits by observation and static approval by 
   assert.equal(runGate({ comments: [request, oldPositive] }).status, 1);
   assert.equal(runGate({ comments: [request, oldPositive, clean] }).status, 0);
 });
+
+
+test("actual gate retains section findings until that section completes cleanly", () => {
+  const time = minute => `2026-10-15T12:0${minute}:00Z`;
+  const render = (value, securityTime = null) => `<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 ${JSON.stringify(value)} -->\n\n## Codex Review Summary
+
+This comment shows the latest Codex review activity on this pull request.
+
+| Review | Status | Commit | Review trigger |
+| --- | --- | --- | --- |
+| 📝 **Code Review** | ✅ **Completed** <relative-time datetime="${time(4)}">${time(4)}</relative-time> | \`${headSha.slice(0,7)}\` | Manual request |${value.security_review.status !== null ? `\n| 🛡️ **Security Review** | ✅ **Completed**${securityTime ? ` <relative-time datetime="${securityTime}">${securityTime}</relative-time>` : ""} | \`${headSha.slice(0,7)}\` | Manual request |` : ""}`;
+  const marker = { user: { login: "github-actions[bot]" }, body: createCodexReviewRequestMarkerBody({ headSha, requestId: "repeat", sourceCommentId: "20", requestedAt: time(3) }) };
+  const negativeState = { ...state, security_review: { ...state.code_review, has_any_findings: true, has_unresolved_findings: true } };
+  const negative = { ...comment(render(negativeState, time(2))), created_at: time(2), updated_at: time(2) };
+  const positive = { ...comment(receipt), created_at: time(5), updated_at: time(5) };
+  const native = { id: 90, user: codexUser, commit_id: headSha, state: "APPROVED", body: "Approved.", submitted_at: time(5) };
+  assert.equal(runGate({ comments: [marker, negative, positive], reviews: [native] }).status, 1);
+  const cleanState = { ...state, security_review: { ...state.code_review } };
+  for (const [value, securityTime, expected] of [[state, null, 1], [cleanState, null, 1], [cleanState, time(2), 1], [cleanState, time(2).replace("00Z", "00.999Z"), 1], [cleanState, "2026-02-30T12:04:00Z", 1], [cleanState, "October 15, 2026 12:04:00 GMT", 1], [cleanState, time(4), 0]]) {
+    const clean = { ...comment(render(value, securityTime)), created_at: time(4), updated_at: time(4) };
+    assert.equal(runGate({ comments: [marker, negative, clean, positive], reviews: [native] }).status, expected);
+  }
+  const clean = { ...comment(render(state)), created_at: time(4), updated_at: time(4) };
+  for (const body of [negative.body.replace(headSha, "b".repeat(40)), negative.body.replace('"has_any_findings":true', '"has_any_findings":true,"has_any_findings":true'), negative.body.replace(":v1", ":v2")])
+    assert.equal(runGate({ comments: [marker, { ...negative, body }, clean] }).status, 0);
+  const codeNegative = { ...negative, body: render({ ...state, code_review: { ...state.code_review, has_any_findings: true, has_unresolved_findings: true } }) };
+  assert.equal(runGate({ comments: [marker, codeNegative, positive], reviews: [native] }).status, 1);
+  assert.equal(runGate({ comments: [marker, codeNegative, clean] }).status, 0);
+});
