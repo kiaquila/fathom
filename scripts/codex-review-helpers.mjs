@@ -17,6 +17,94 @@ const CODEX_RECEIPT_ENCOURAGEMENTS = new Set([
   "Hooray!"
 ]);
 
+function containsNegativeReviewState(text) {
+  const plain = String(text).replace(/_/g, " ").replace(/[*`~]/g, "");
+  const negativeState = /\b(?:unresolved|incomplete|pending|in[\s./:-]*progress|changes[\s./:-]*requested|fail(?:ed|ure)?|running|queued|cancel(?:led|ed)|error(?:ed)?|blocked|unknown|withdraw(?:n|al|ing)?|revok(?:e|ed|ing)|revocation|retracted|rescinded|rejected|declined|denied|aborted|abandoned|paused|suspended|skipped|stopped|terminated|expired|invalid|unavailable|inconclusive|deferred|unsuccessful|stale|outdated|superseded|waiting|timed[\s./:-]*out|action[\s./:-]*required)\b/i;
+  const negatedSuccess = /\b(?:not|never|no[\s./:-]*longer|(?:has|have|had|is|was|were|could|did|does|do)n['’]t|can['’]t|won['’]t|cannot|unable[\s./:-]*to)(?:[\s./:-]*(?:yet|fully|be|been|being|to))*[\s./:-]*(?:complet(?:e|ed)|finish(?:ed)?|approv(?:e|ed)|start(?:ed)?|review(?:ed)?|pass(?:ed)?|valid(?:ate|ated)?|ready|done|success(?:ful(?:ly)?)?|available)\b/i;
+  return negativeState.test(plain) || negatedSuccess.test(plain);
+}
+
+const codexHelpIntroduction = `[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you
+- Open a pull request for review
+- Mark a draft as ready
+- Comment "@codex review"`;
+const codexHelpFooters = [
+  codexHelpIntroduction + ` or "@codex security review".
+Codex reacts with 👀 while any review is running, comments if it has suggestions, and reacts with 👍 once all reviews finish with no findings.`,
+  codexHelpIntroduction + `.
+If Codex has suggestions, it will comment; otherwise it will react with 👍.
+Codex can also answer questions or update the PR. Try commenting "@codex address that feedback".`
+].map((text) => text.replace(/\s+/g, " ").trim());
+
+function withoutCodexHelpFooter(text) {
+  const body = String(text);
+  const footer = body.match(/\s*<details>\s*<summary>ℹ️ About Codex in GitHub<\/summary>\s*<br\/>\s*((?:(?!<\/?details\b)[\s\S])*)<\/details>\s*$/);
+  if (!footer || !codexHelpFooters.includes(footer[1].replace(/\s+/g, " ").trim())) return body;
+  return body.slice(0, footer.index);
+}
+
+function isPositiveSummaryRendering(text, headSha, securityActive) {
+  const visible = withoutCodexHelpFooter(text).trim();
+  const lines = visible.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.shift() !== "This comment shows the latest Codex review activity on this pull request." ||
+      lines.shift() !== "| Review | Status | Commit | Review trigger |" ||
+      lines.shift() !== "| --- | --- | --- | --- |") return false;
+  const seen = new Set();
+  for (const line of lines) {
+    const row = line.match(/^\| (?:📝|🛡️) \*\*(Code Review|Security Review)\*\* \| ✅ \*\*Completed\*\*(?: <relative-time datetime="([^"<>]+)">([^<>]+)<\/relative-time>)? \| `([a-f0-9]{7,40})` \| (?:Manual request|Automatic review) \|$/);
+    if (!row || seen.has(row[1]) || !headSha.startsWith(row[4]) ||
+        (row[2] && (row[2] !== row[3] || !Number.isFinite(Date.parse(row[2]))))) return false;
+    seen.add(row[1]);
+  }
+  return seen.has("Code Review") && seen.size === (securityActive ? 2 : 1) &&
+    (!securityActive || seen.has("Security Review"));
+}
+
+function parseStructuredCodexSummary(body, headSha) {
+  const envelope = body.match(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 (.+?) -->\s*## Codex Review Summary(?:\s|$)/s);
+  if (!envelope || (body.match(/codex-pull-request-review-summary/g) || []).length !== 1 ||
+      (body.match(/codex-review-state:/g) || []).length !== 1 || body.includes("codex-review-receipt:")) return null;
+  let state;
+  try { state = JSON.parse(envelope[1]); } catch { return null; }
+  const keysAre = (value, keys) => value && typeof value === "object" && !Array.isArray(value) &&
+    Object.keys(value).sort().join(",") === [...keys].sort().join(",");
+  if (!keysAre(state, ["code_review", "security_review"])) return null;
+  for (const [name, value] of Object.entries(state)) {
+    if (!keysAre(value, ["commit_sha", "has_any_findings", "has_unresolved_findings", "status"])) return null;
+    if (name === "security_review" && Object.values(value).every((field) => field === null)) continue;
+    const knownFindings = typeof value.has_any_findings === "boolean" && typeof value.has_unresolved_findings === "boolean";
+    const omittedCodeFindings = false;
+    if (typeof value.commit_sha !== "string" || !/^[a-f0-9]{40}$/.test(value.commit_sha) || typeof value.status !== "string" ||
+        (!knownFindings && !omittedCodeFindings) || (!value.has_any_findings && value.has_unresolved_findings)) return null;
+  }
+  // Decode key spellings too, so escaped duplicate JSON fields cannot override
+  // an earlier negative value under a second spelling of the same key.
+  const keys = [...envelope[1].matchAll(/("(?:[^"\\]|\\.)*")\s*:/g)].map((match) => JSON.parse(match[1]));
+  for (const key of ["code_review", "security_review", "commit_sha", "has_any_findings", "has_unresolved_findings", "status"]) {
+    const expected = ["code_review", "security_review"].includes(key) ? 1 : 2;
+    if (keys.filter((value) => value === key).length !== expected) return null;
+  }
+  const code = state.code_review;
+  if (code.commit_sha !== headSha) return null;
+  // Conflicting visible severity or a second verdict cannot be hidden by JSON.
+  const visibleVerdict = withoutCodexHelpFooter(body.slice(envelope[0].length));
+  if (containsBlockingCodexSeverity(body) || containsNegativeReviewState(visibleVerdict) ||
+      /Codex Review:|\bfound\s+(?:a|[1-9])\b/i.test(visibleVerdict)) return { result: "fail", explicitSha: true };
+  const security = state.security_review;
+  if (code.has_any_findings || code.has_unresolved_findings || security.has_any_findings || security.has_unresolved_findings) {
+    return { result: "fail", explicitSha: true };
+  }
+  const securityCompleted = security.status === null || (security.commit_sha === headSha && security.status === "completed");
+  const completed = code.status === "completed" && securityCompleted;
+  const positiveRendering = completed && isPositiveSummaryRendering(visibleVerdict, headSha, security.status !== null);
+  if (positiveRendering && code.has_any_findings === null && code.has_unresolved_findings === null) {
+    // The native backend omits code findings flags when it publishes a separate
+    // no-findings receipt. Null is never a positive verdict on its own.
+    return { result: "pending", explicitSha: true, requiresCodeReceipt: true };
+  }
+  return { result: positiveRendering ? "pass" : "pending", explicitSha: true };
+}
+
 function normalize(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -152,8 +240,7 @@ export function extractCodexPriority(body) {
 }
 
 export function containsBlockingCodexSeverity(body) {
-  const priority = extractCodexPriority(body);
-  return priority !== null && priority <= 2;
+  return /\bP[0-2]\b/i.test(String(body || ""));
 }
 
 export function classifyCodexNativeReview(review, reviewComments = [], headSha) {
@@ -202,8 +289,8 @@ export function isAcceptableCodexSummaryComment(comment, headSha, requestedAt, s
   if (!isAfterRequest || !isTrustedCodexLogin(comment?.user?.login)) return false;
   if (!/^[a-f0-9]{40}$/i.test(String(headSha || ""))) return false;
 
-  // Only the observed receipt envelope is evidence. The mutable structured
-  // activity summary is a wakeup signal, not a no-findings verdict.
+  // This legacy path recognizes strict receipts only. Structured whole-review
+  // snapshots are independently validated by evaluateCodexCommentEvidence.
   if ((body.match(/codex-review-receipt/gi) || []).length > 1 ||
       /codex-(?:review-state|pull-request-review-summary)/i.test(body) ||
       (body.match(/\*\*Reviewed commit:/g) || []).length !== 1 ||
@@ -212,12 +299,7 @@ export function isAcceptableCodexSummaryComment(comment, headSha, requestedAt, s
   if (receipt.startsWith("<!-- codex-review-receipt:v1 -->")) {
     receipt = receipt.slice("<!-- codex-review-receipt:v1 -->".length).trim();
   }
-  const details = receipt.indexOf("<details>");
-  if (details !== -1) {
-    const about = receipt.slice(details);
-    if (!/^<details>[\s\S]*About Codex in GitHub[\s\S]*<\/details>$/.test(about)) return false;
-    receipt = receipt.slice(0, details).trim();
-  }
+  receipt = withoutCodexHelpFooter(receipt).trim();
   const match = receipt.match(
     /^Codex Review: Didn't find any major issues\.([^\r\n]*)\r?\n\s*\r?\n\*\*Reviewed commit:\*\* +`([a-f0-9]{10}|[a-f0-9]{40})`$/i
   );
@@ -234,4 +316,59 @@ export function hasUnresolvedCodexFindings(threads = []) {
     thread.comments?.nodes?.some((comment) =>
       isTrustedCodexLogin(comment.author?.login) ||
       (comment.author?.__typename === "Bot" && comment.author.login === "chatgpt-codex-connector")));
+}
+
+// Machine snapshots cover the whole review. Legacy receipts stay strict;
+// opaque presentation contributes no positive review evidence.
+
+
+// The shared summary can be edited by security activity. Its server update
+// time alone cannot prove that code review ran for this particular request.
+function codeReviewCompletionTime(body) {
+  const rows = [...withoutCodexHelpFooter(String(body)).matchAll(/^\| 📝 \*\*Code Review\*\* \| ✅ \*\*Completed\*\* <relative-time datetime="([^"<>]+)">([^<>]+)<\/relative-time> \|/gm)];
+  return rows.length === 1 && rows[0][1] === rows[0][2] ? Date.parse(rows[0][1]) : NaN;
+}
+
+function hasFreshCodeReviewCompletion(body, requestMarker, updatedAt) {
+  const time = codeReviewCompletionTime(body);
+  const cutoff = Date.parse(requestMarker?.sourceCommentCreatedAt || requestMarker?.requestedAt || requestMarker?.commentCreatedAt || "");
+  const snapshotTime = Date.parse(updatedAt || "");
+  // GitHub comment timestamps have second precision; row times retain fractions.
+  return Number.isFinite(time) && Number.isFinite(cutoff) && Number.isFinite(snapshotTime) &&
+    Math.floor(time / 1000) > Math.floor(cutoff / 1000) && time <= snapshotTime + 999;
+}
+
+export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, nativeResult = null, nativeTime = null) {
+  const candidates = [];
+  if (nativeResult) candidates.push({ result: nativeResult, time: Date.parse(nativeTime || "") });
+  for (const comment of comments) {
+    if (!isTrustedCodexLogin(comment.user?.login)) continue;
+    const body = String(comment.body || "").trim();
+    const structured = /codex-(?:pull-request-review-summary|review-state)/i.test(body);
+    const signal = structured || /codex-review-receipt|^Codex Review:/i.test(body);
+    if (!signal) continue;
+    const time = Date.parse((structured ? comment.updated_at || comment.created_at : comment.created_at) || "");
+    if (!Number.isFinite(time)) return "pending";
+    const cutoff = requestMarker.sourceCommentCreatedAt || requestMarker.requestedAt || requestMarker.commentCreatedAt;
+    let result = "pending";
+    if (structured) result = parseStructuredCodexSummary(body, headSha)?.result || "pending";
+    else if (isAcceptableCodexSummaryComment(comment, headSha, cutoff, requestMarker.sourceCommentId)) result = "pass";
+    else if (containsBlockingCodexSeverity(body)) result = "fail";
+    if (structured && result === "pass" &&
+        (!isStrictlyAfterCodexReviewRequest(new Date(time).toISOString(), requestMarker) ||
+         !hasFreshCodeReviewCompletion(body, requestMarker, comment.updated_at || comment.created_at))) result = "pending";
+    candidates.push({ result, time: structured && result === "pass" ? Math.floor(codeReviewCompletionTime(body) / 1000) * 1000 : time, snapshotTime: time, structured });
+  }
+  const snapshots = candidates.filter((entry) => entry.structured);
+  if (snapshots.length) {
+    const latest = Math.max(...snapshots.map((entry) => entry.snapshotTime));
+    const current = snapshots.filter((entry) => entry.snapshotTime === latest);
+    if (current.some((entry) => entry.result === "fail")) return "fail";
+    if (current.some((entry) => entry.result !== "pass")) return "pending";
+  }
+  const time = Math.max(...candidates.map((entry) => entry.time).filter(Number.isFinite));
+  const latest = candidates.filter((entry) => entry.time === time);
+  if (latest.some((entry) => entry.result === "fail")) return "fail";
+  if (latest.some((entry) => entry.result !== "pass")) return "pending";
+  return latest.some((entry) => entry.result === "pass") ? "pass" : "pending";
 }
