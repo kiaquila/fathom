@@ -20,13 +20,14 @@ This comment shows the latest Codex review activity on this pull request.
 
 
 const evaluate = (comments) => evaluateCodexCommentEvidence(comments, headSha, requestMarker);
-test("independent complete machine proof accepts opaque closings in either arrival order", () => {
+test("independent complete machine proof accepts opaque closings only when newer", () => {
   for (const closing of ["Swish!", "You're on a roll.", "Another round soon, please!", "Chef's kiss.", "A sparkling little triumph!", "No worries!"]) {
     const opaque = receipt.replace("Swish!", closing);
     if (["Swish!", "A sparkling little triumph!", "No worries!"].includes(closing))
       assert.equal(evaluate([comment(opaque)]), "pending");
     for (const time of ["2026-10-01T10:01:00Z", "2026-10-01T10:03:00Z"])
-      assert.equal(evaluate([comment(opaque, time), comment(summary())]), "pass", closing);
+      assert.equal(evaluate([comment(opaque, time), comment(summary())]),
+        time < "2026-10-01T10:02:00Z" || ["You're on a roll.", "Another round soon, please!", "Chef's kiss."].includes(closing) ? "pass" : "pending", closing);
   }
 });
 test("machine proof is strict, fresh, exact-head and cannot erase newer bad state", () => {
@@ -59,4 +60,17 @@ test("equal-time malformed, wrong-head and pending snapshots invalidate clean pr
     receipt + "\n**Reviewed commit:** `0123456789`", receipt + "\nP0: issue",
     receipt.replace("Swish!", "Swish!\nAnother line"), receipt.replace("0123456789", "fedcba9876")])
     assert.notEqual(evaluate([comment(summary()), comment(body, "2026-10-01T10:03:00Z")]), "pass", body);
+});
+
+test("unknown receipt at the same time as clean proof remains pending", () => {
+  assert.equal(evaluate([comment(receipt), comment(summary())]), "pending");
+});
+
+test("unknown contrary prose never inherits earlier or equal-time clean proof", () => {
+  for (const closing of ["Do not merge.", "A vulnerability remains.", "Needs work."]) {
+    const body = receipt.replace("Swish!", closing);
+    assert.notEqual(evaluate([comment(body), comment(summary())]), "pass", closing);
+    assert.notEqual(evaluate([comment(summary()), comment(body, "2026-10-01T10:03:00Z")]), "pass", closing);
+    assert.equal(evaluate([comment(body), comment(summary(), "2026-10-01T10:03:00Z")]), "pass", closing);
+  }
 });

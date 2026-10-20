@@ -29,7 +29,7 @@ approve a review. A trusted current-request structured snapshot can
 supply an independent verdict only with an exact full head SHA, completed code
 review, explicit false findings flags, and inactive or equally clean security
 review. Malformed, pending, stale, or negative snapshots block older positives;
-an exact clean receipt with opaque presentation is neutral in either arrival order.
+an unknown receipt remains pending until a strictly newer affirmative snapshot.
 Formal reviews retain their current-head and P0–P2 policy. A new request cannot
 clear a blocking review, and unresolved Codex review threads block regardless of
 severity or the commit on which they were created.

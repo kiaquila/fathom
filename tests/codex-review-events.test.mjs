@@ -272,7 +272,7 @@ test("the invoked gate accepts only full clean machine proof for opaque receipt 
 | --- | --- | --- | --- |
 | 📝 **Code Review** | ✅ **Completed** | \`${headSha.slice(0, 7)}\` | Manual request |`;
   const request = { user: { login: "github-actions[bot]" }, body: createCodexReviewRequestMarkerBody({ headSha, requestId: "20-head", sourceCommentId: "20", requestedAt }) };
-  const opaque = comment(receipt.replace(":rocket:", "Swish!"));
+  const opaque = { ...comment(receipt.replace(":rocket:", "Swish!")), created_at: "2026-10-15T12:00:30Z", updated_at: "2026-10-15T12:00:30Z" };
   const passed = runGate({ comments: [request, opaque, comment(machine)] });
   assert.equal(passed.status, 0, passed.stderr);
   for (const body of [machine.replace('"completed"', '"running"'), machine.replace('"has_any_findings":false', '"has_any_findings":true'), machine.replace(headSha, "0".repeat(40))])

@@ -321,18 +321,6 @@ export function hasUnresolvedCodexFindings(threads = []) {
 // Machine snapshots cover the whole review. Legacy receipts stay strict;
 // opaque presentation contributes no positive review evidence.
 
-// This recognizes presentation, never grants a positive verdict. Only an
-// independently validated, current-request whole-review snapshot can approve.
-function isOpaqueCleanCodexReceipt(body, headSha) {
-  const visible = withoutCodexHelpFooter(String(body).trim()).trim();
-  const match = visible.match(/^(?:<!-- codex-review-receipt:v1 -->\s*)?Codex Review: Didn't find any major issues\.([^\r\n]*)\r?\n\s*\r?\n\*\*Reviewed commit:\*\* `([a-f0-9]{10}|[a-f0-9]{40})`$/i);
-  if (!match || !/^[a-f0-9]{40}$/.test(String(headSha)) || !headSha.startsWith(match[2].toLowerCase())) return false;
-  const suffix = match[1];
-  if (suffix.length > 240 || /[<>`{}[\]\\\u2028\u2029]/u.test(suffix) || /\b[a-f0-9]{10,40}\b/i.test(suffix)) return false;
-  if (/\b(?:p[0-3]|codex|review|commit|sha|head|request|finding\w*|issue\w*|bug\w*|defect\w*|regression\w*|vulnerab\w*|security|risk\w*|problem\w*|concern\w*|found|detect\w*|leak\w*|credential\w*|delet\w*|data|but|however|except|although|status|state|verdict|metadata|true|false|null)\b/i.test(suffix.replace(/[_-]/g, " ")) || containsNegativeReviewState(suffix)) return false;
-  return true;
-}
-
 export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, nativeResult = null, nativeTime = null) {
   const candidates = [];
   if (nativeResult) candidates.push({ result: nativeResult, time: Date.parse(nativeTime || "") });
@@ -350,7 +338,7 @@ export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, n
     else if (isAcceptableCodexSummaryComment(comment, headSha, cutoff, requestMarker.sourceCommentId)) result = "pass";
     else if (containsBlockingCodexSeverity(body)) result = "fail";
     if (!isStrictlyAfterCodexReviewRequest(new Date(time).toISOString(), requestMarker) && result === "pass") result = "pending";
-    candidates.push({ result, time, structured, opaque: !structured && isOpaqueCleanCodexReceipt(body, headSha) && isStrictlyAfterCodexReviewRequest(comment.created_at, requestMarker) });
+    candidates.push({ result, time, structured });
   }
   const snapshots = candidates.filter((entry) => entry.structured);
   if (snapshots.length) {
@@ -359,10 +347,8 @@ export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, n
     if (current.some((entry) => entry.result === "fail")) return "fail";
     if (current.some((entry) => entry.result !== "pass")) return "pending";
   }
-  const cleanSnapshot = snapshots.length && snapshots.some((entry) => entry.time === Math.max(...snapshots.map((item) => item.time)) && entry.result === "pass");
-  const eligible = candidates.filter((entry) => !(cleanSnapshot && entry.opaque));
-  const time = Math.max(...eligible.map((entry) => entry.time).filter(Number.isFinite));
-  const latest = eligible.filter((entry) => entry.time === time);
+  const time = Math.max(...candidates.map((entry) => entry.time).filter(Number.isFinite));
+  const latest = candidates.filter((entry) => entry.time === time);
   if (latest.some((entry) => entry.result === "fail")) return "fail";
   if (latest.some((entry) => entry.result !== "pass")) return "pending";
   return latest.some((entry) => entry.result === "pass") ? "pass" : "pending";
