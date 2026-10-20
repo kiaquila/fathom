@@ -347,12 +347,16 @@ export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, n
     const structured = /codex-(?:pull-request-review-summary|review-state)/i.test(body);
     const signal = structured || /codex-review-receipt|^Codex Review:/i.test(body);
     if (!signal) continue;
-    const time = Date.parse((structured ? comment.updated_at || comment.created_at : comment.created_at) || "");
-    if (!Number.isFinite(time)) return "pending";
     const cutoff = requestMarker.sourceCommentCreatedAt || requestMarker.requestedAt || requestMarker.commentCreatedAt;
+    const strictReceipt = !structured && isAcceptableCodexSummaryComment(comment, headSha);
+    // Static approval cannot be refreshed by an edit. Pending or negative edits
+    // are newly observed signals and retain their server update time.
+    if (strictReceipt && !isAcceptableCodexSummaryComment(comment, headSha, cutoff, requestMarker.sourceCommentId)) continue;
+    const time = Date.parse((strictReceipt ? comment.created_at : comment.updated_at || comment.created_at) || "");
+    if (!Number.isFinite(time)) return "pending";
     let result = "pending";
     if (structured) result = parseStructuredCodexSummary(body, headSha)?.result || "pending";
-    else if (isAcceptableCodexSummaryComment(comment, headSha, cutoff, requestMarker.sourceCommentId)) result = "pass";
+    else if (strictReceipt) result = "pass";
     else if (containsBlockingCodexSeverity(body)) result = "fail";
     if (structured && result === "pass" &&
         (!isStrictlyAfterCodexReviewRequest(new Date(time).toISOString(), requestMarker) ||

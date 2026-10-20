@@ -85,3 +85,5 @@ summary cannot renew an old code verdict; a missing completion time stays pendin
 Positive machine evidence is ordered by code completion time in whole-second
 buckets, matching GitHub comment precision. Same-second request or pending
 evidence remains blocking; security-only edits cannot advance that order.
+
+Static clean receipts retain their publication time; unknown and negative receipt edits use their server update time and block older or equal-time machine completion.

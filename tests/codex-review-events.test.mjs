@@ -278,3 +278,26 @@ test("the invoked gate accepts only full clean machine proof for opaque receipt 
   for (const body of [machine.replace('"completed"', '"running"'), machine.replace('"has_any_findings":false', '"has_any_findings":true'), machine.replace(headSha, "0".repeat(40))])
     assert.equal(runGate({ comments: [request, opaque, comment(body)] }).status, 1, body);
 });
+
+
+test("the actual gate dates unknown edits by observation and static approval by publication", () => {
+  const markerTime = "2026-10-15T12:02:00Z";
+  const request = { user: { login: "github-actions[bot]" }, body: createCodexReviewRequestMarkerBody({ headSha, requestId: "20-head", sourceCommentId: "20", requestedAt: markerTime }) };
+  const machine = summary + `\n\nThis comment shows the latest Codex review activity on this pull request.
+
+| Review | Status | Commit | Review trigger |
+| --- | --- | --- | --- |
+| 📝 **Code Review** | ✅ **Completed** <relative-time datetime="2026-10-15T12:04:00Z">2026-10-15T12:04:00Z</relative-time> | \`${headSha.slice(0, 7)}\` | Manual request |`;
+  const clean = { ...comment(machine), created_at: "2026-10-15T12:04:00Z", updated_at: "2026-10-15T12:04:00Z" };
+  for (const [created, updated, expected] of [
+    ["12:01", "12:03", 0], ["12:03", "12:03", 0],
+    ["12:01", "12:05", 1], ["12:01", "12:04", 1],
+    ["12:05", "12:05", 1]]) {
+    const unknown = { ...comment(receipt.replace(":rocket:", "Swish!")), created_at: `2026-10-15T${created}:00Z`, updated_at: `2026-10-15T${updated}:00Z` };
+    const result = runGate({ comments: [request, unknown, clean] });
+    assert.equal(result.status, expected, `${created}/${updated}: ${result.stderr}`);
+  }
+  const oldPositive = { ...comment(), updated_at: "2026-10-15T12:05:00Z" };
+  assert.equal(runGate({ comments: [request, oldPositive] }).status, 1);
+  assert.equal(runGate({ comments: [request, oldPositive, clean] }).status, 0);
+});
