@@ -24,18 +24,21 @@ human must post `@codex review <current-full-head-sha>`; only the exact
 `chatgpt-codex-connector[bot]` identity supplies native review evidence. Legacy
 no-findings comments and the `codex-review-receipt:v1` envelope require an explicit
 positive verdict, a matching reviewed commit, and creation after that request.
-Receipt endings allow the neutral encouragement observed in this repository or
-emoji; unknown prose fails closed rather than hiding a contradictory verdict.
+Legacy receipt endings remain strict. Unseen presentation endings alone cannot
+approve a review. A trusted current-request structured snapshot can
+supply an independent verdict only with an exact full head SHA, completed code
+review, explicit false findings flags, and inactive or equally clean security
+review. Malformed, pending, stale, or negative snapshots block older positives;
+an exact clean receipt with opaque presentation is neutral in either arrival order.
 Formal reviews retain their current-head and P0–P2 policy. A new request cannot
 clear a blocking review, and unresolved Codex review threads block regardless of
 severity or the commit on which they were created.
 
 The rerun workflow and runtime router both accept receipt and
 `codex-pull-request-review-summary` updates on `created` and `edited` events.
-The mutable activity summary is only a wakeup signal: its JSON, timestamps,
-`Completed` label, and reactions never satisfy the gate. An updated summary may
-have been created before the latest request; routing does not filter on its
-creation time. Passing still requires a qualifying receipt or formal review.
+A complete strictly validated machine snapshot is also review evidence; a heading,
+`Completed` label, or reaction alone never approves. Snapshot update time must
+follow the latest trusted request; legacy receipts retain creation-time eligibility.
 
 Request and evidence jobs share a per-PR queue with `queue: max`, preserving
 pending jobs rather than replacing them. Both dispatch `codex-review.yml` on the

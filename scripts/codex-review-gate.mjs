@@ -2,9 +2,10 @@
 
 import { appendFileSync } from "node:fs";
 import {
-  isAcceptableCodexSummaryComment,
+  evaluateCodexCommentEvidence,
   hasUnresolvedCodexFindings,
   isStrictlyAfterCodexReviewRequest,
+  isTrustedCodexLogin,
   latestCodexNativeReviewResult,
   latestCodexReviewRequestMarker,
   latestTrustedCodexReviewCommand
@@ -122,16 +123,10 @@ async function fetchEvidence() {
     reviewComments,
     headSha
   );
-  if (nativeResult) return nativeResult;
-
-  return comments.some((comment) => isAcceptableCodexSummaryComment(
-    comment,
-    headSha,
-    requestMarker.sourceCommentCreatedAt || requestMarker.requestedAt || requestMarker.commentCreatedAt,
-    requestMarker.sourceCommentId
-  ))
-    ? "pass"
-    : "pending";
+  const nativeTime = reviewsAfterRequest.filter((review) => review.commit_id === headSha &&
+    isTrustedCodexLogin(review.user?.login) && ["APPROVED", "COMMENTED"].includes(review.state))
+    .map((review) => review.submitted_at).sort().at(-1);
+  return evaluateCodexCommentEvidence(comments, headSha, requestMarker, nativeResult, nativeTime);
 }
 
 if (Number.isFinite(debounceMs) && debounceMs > 0) {

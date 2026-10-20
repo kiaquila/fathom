@@ -20,6 +20,14 @@ const requestedAt = "2026-10-15T12:00:00Z";
 const receipt = "<!-- codex-review-receipt:v1 -->\n\n" +
   "Codex Review: Didn't find any major issues. :rocket:\n\n" +
   "**Reviewed commit:** `2667f79cd7`";
+const helpFooter = `<details> <summary>ℹ️ About Codex in GitHub</summary>
+<br/>
+[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you
+- Open a pull request for review
+- Mark a draft as ready
+- Comment "@codex review" or "@codex security review".
+Codex reacts with 👀 while any review is running, comments if it has suggestions, and reacts with 👍 once all reviews finish with no findings.
+</details>`;
 const state = {
   code_review: { commit_sha: headSha, has_any_findings: false,
     has_unresolved_findings: false, status: "completed" },
@@ -41,7 +49,7 @@ test("observed native receipt and legacy verdict retain exact commit binding", (
       "Chef's kiss.", "You're on a roll.", "Can't wait for the next one!", "Breezy!",
       "Already looking forward to the next diff.", "More of your lovely PRs please.",
       "Keep them coming!", "Hooray!", ":+1:", ":tada:", "🚀"].map(suffix => receipt.replace(":rocket:", suffix)),
-    receipt + "\n\n<details> <summary>About Codex in GitHub</summary>\nHelp\n</details>",
+    receipt + "\n\n" + helpFooter,
     receipt.replace("`2667f79cd7`", `\`${headSha}\``)]) {
     assert.equal(isAcceptableCodexSummaryComment(comment(body), headSha, requestedAt, "20"), true, body);
   }
@@ -254,4 +262,19 @@ test("the gate rechecks HEAD after evidence before reporting success", () => {
   const moved = runGate({ moveHeadAt: 4 });
   assert.equal(moved.status, 1, moved.stdout);
   assert.match(moved.stderr, /head changed/);
+});
+
+
+test("the invoked gate accepts only full clean machine proof for opaque receipt endings", () => {
+  const machine = summary + `\n\nThis comment shows the latest Codex review activity on this pull request.
+
+| Review | Status | Commit | Review trigger |
+| --- | --- | --- | --- |
+| 📝 **Code Review** | ✅ **Completed** | \`${headSha.slice(0, 7)}\` | Manual request |`;
+  const request = { user: { login: "github-actions[bot]" }, body: createCodexReviewRequestMarkerBody({ headSha, requestId: "20-head", sourceCommentId: "20", requestedAt }) };
+  const opaque = comment(receipt.replace(":rocket:", "Swish!"));
+  const passed = runGate({ comments: [request, opaque, comment(machine)] });
+  assert.equal(passed.status, 0, passed.stderr);
+  for (const body of [machine.replace('"completed"', '"running"'), machine.replace('"has_any_findings":false', '"has_any_findings":true'), machine.replace(headSha, "0".repeat(40))])
+    assert.equal(runGate({ comments: [request, opaque, comment(body)] }).status, 1, body);
 });
