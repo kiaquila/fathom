@@ -114,6 +114,6 @@ Visible contradiction checks decode numeric character references and inline Mark
 
 HTML-comment row exclusion consumes an unterminated comment through EOF and preserves line boundaries. A BOM does not hide code indentation before the summary heading; rendered whitespace references cannot hide the known Do not merge warning.
 
-Existing warning checks use rendered HTML text and Markdown link labels, ignoring invisible format characters. Collapsed informational details cannot supply canonical completion rows.
+Existing warning checks use rendered HTML text and Markdown link labels, ignoring Unicode default-ignorable characters, including variation selectors. Collapsed informational details cannot supply canonical completion rows.
 
 BOM placement cannot erase raw code indentation before protocol markers; zero-width formatting cannot hide the known Do not merge warning.
