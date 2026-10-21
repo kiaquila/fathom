@@ -18,10 +18,10 @@ const CODEX_RECEIPT_ENCOURAGEMENTS = new Set([
 ]);
 
 function visibleReviewText(value) {
-  return String(value || "").replace(/&#(x[0-9a-f]+|[0-9]+);/gi, (entity, digits) => {
+  return String(value || "").replace(/<!--[\s\S]*?(?:-->|$)/g, "").replace(/&#(x[0-9a-f]+|[0-9]+);/gi, (entity, digits) => {
     const point = digits[0].toLowerCase() === "x" ? parseInt(digits.slice(1), 16) : Number(digits);
     return point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff) ? String.fromCodePoint(point) : entity;
-  }).replace(/&(ZeroWidthSpace|NegativeVeryThinSpace|NegativeThinSpace|NegativeMediumSpace|NegativeThickSpace|NoBreak|zwnj|zwj|lrm|rlm|shy);/g, "").replace(/<\/?[a-z][^>]*>/gi, "").replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/\p{Default_Ignorable_Code_Point}/gu, "").replace(/&(nbsp|NonBreakingSpace|ensp|emsp|emsp13|emsp14|numsp|puncsp|thinsp|ThinSpace|hairsp|VeryThinSpace|MediumSpace|ThickSpace|Tab|NewLine);/g, " ").replace(/[*`~]/g, "").replace(/_/g, " ");
+  }).replace(/&(ZeroWidthSpace|NegativeVeryThinSpace|NegativeThinSpace|NegativeMediumSpace|NegativeThickSpace|NoBreak|zwnj|zwj|lrm|rlm|shy);/g, "").replace(/<\/?(?:summary|details)\b[^>]*>/gi, " ").replace(/<\/?[a-z][^>]*>/gi, "").replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/\p{Default_Ignorable_Code_Point}/gu, "").replace(/&(nbsp|NonBreakingSpace|ensp|emsp|emsp13|emsp14|numsp|puncsp|thinsp|ThinSpace|hairsp|VeryThinSpace|MediumSpace|ThickSpace|Tab|NewLine);/g, " ").replace(/[*`~]/g, "").replace(/_/g, " ");
 }
 
 function containsNegativeReviewState(text) {
@@ -82,7 +82,7 @@ function withoutMarkdownFences(body) {
 
 function parseStructuredCodexSummary(body, headSha, stateOnly = false, negativeOnly = false) {
   // Four-space/tab protocol openers are Markdown examples, never authority.
-  const rawEnvelope = body.replace(/\uFEFF/g, "");
+  const rawEnvelope = body.replace(/[^\S\r\n \t]/g, "");
   const leadingMarkers = rawEnvelope.match(/^\uFEFF?(?:[ \t]*\r?\n)*([ \t]*)<!--\s*codex-(?:pull-request-review-summary|review-state:)/);
   const leadingState = rawEnvelope.match(/^\uFEFF?(?:[ \t]*\r?\n)*[ \t]*<!-- codex-pull-request-review-summary -->[ \t]*\r?\n([ \t]*)<!--\s*codex-review-state:/);
   const leadingHeading = rawEnvelope.match(/^\uFEFF?(?:[ \t]*\r?\n)*[ \t]*<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 .+? -->[ \t]*\r?\n(?:[ \t]*\r?\n)*([ \t\uFEFF]*)## Codex Review Summary/s);
@@ -377,7 +377,7 @@ function hasValidFindingCompanions(state, body, observed, headSha, resolvingSect
     if (section === resolvingSection) continue;
     if (!resolvingSection && value.commit_sha === headSha && (value.has_any_findings === true || value.has_unresolved_findings === true)) continue;
     if (value.status === null) {
-      if (String(body).includes(`**${label}**`)) return false;
+      if (visibleReviewText(body).includes(label)) return false;
       continue;
     }
     const rowBody = resolvingSection && value.status === "running"
@@ -414,7 +414,7 @@ function hasVisibleStructuredConflict(body, section = null) {
     if (rows.some(line => !/^\| [📝🛡️]+ \*\*(?:Code|Security) Review\*\* \| (?:✅ \*\*Completed\*\*|🔄 \*\*Running\*\*)(?: since)?(?: <relative-time datetime="[^"<>]+">[^<>]+<\/relative-time>)? \| `[a-f0-9]{7,40}` \| (?:Manual request|Automatic review) \|$/.test(line))) return true;
   }
   if (section) visible = visible.split("\n").filter(line => !line.startsWith(section === "code_review" ? "| 🛡️ **Security Review** |" : "| 📝 **Code Review** |")).join("\n");
-  return /<!--\s*codex-/i.test(visible) || containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:|\bfound\s+(?:a|[1-9])\b/i.test(visible);
+  return /<!--\s*codex-/i.test(visible) || containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:|\bfound\s+(?:a|[1-9])\b/i.test(visibleReviewText(visible));
 }
 
 function isSupersededTypedFinding(comment, snapshots, headSha) {
@@ -422,7 +422,7 @@ function isSupersededTypedFinding(comment, snapshots, headSha) {
   const state = parseStructuredCodexSummary(String(comment.body || ""), headSha, true);
   if (!state) return false;
   const visible = withoutCodexHelpFooter(body.replace(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 .+? -->\s*## Codex Review Summary/s, ""));
-  if (containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:|\bfound\s+(?:a|[1-9])\b/i.test(visible)) return false;
+  if (containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:|\bfound\s+(?:a|[1-9])\b/i.test(visibleReviewText(visible))) return false;
   const observed = Date.parse(comment.updated_at || comment.created_at || "");
   if (!hasValidFindingCompanions(state, body, observed, headSha)) return false;
   const findings = [["code_review", "Code Review"], ["security_review", "Security Review"]].filter(([section]) => state[section].commit_sha === headSha && (state[section].has_any_findings === true || state[section].has_unresolved_findings === true));
