@@ -417,6 +417,16 @@ This comment shows the latest Codex review activity on this pull request.
   const genuineWithQuotedFence = { ...oldFinding, body: oldFinding.body + trailing };
   assert.equal(runGate({ comments: [marker, genuineWithQuotedFence, clean, positive], reviews: [native] }).status, 1, "nested blockquote fenced example cannot erase genuine finding");
   }
+  const fullyClean = { ...negative, body: render(cleanState, time(4)), created_at: time(4), updated_at: time(4) };
+  const lateVisibleNegative = { ...oldFinding, body: oldFinding.body + "\nP1: Security review failed.", updated_at: time(6) };
+  assert.equal(runGate({ comments: [marker, lateVisibleNegative, fullyClean, positive], reviews: [native] }).status, 1, "visible negative edit uses observation clock");
+  const warningLabel = { ...oldFinding, body: oldFinding.body.replace("| 🛡️ **Security Review** |", "| ⚠️ P1 🛡️ **Security Review** |"), updated_at: time(6) };
+  assert.equal(runGate({ comments: [marker, warningLabel, fullyClean, positive], reviews: [native] }).status, 1, "warning-bearing own row cannot borrow old completion clock");
+  const malformedStatusState = { ...negativeState, security_review: { ...negativeState.security_review, status: "<!-- codex-review-state:" } };
+  const malformedStatus = { ...oldFinding, body: render(malformedStatusState, time(1)).replaceAll(time(4), time(1)) };
+  assert.equal(runGate({ comments: [marker, malformedStatus, clean, positive], reviews: [native] }).status, 0, "duplicate protocol inside envelope is not durable authority");
+  const fencedResolution = { ...fullyClean, body: fullyClean.body.replace(/(\| 📝 \*\*Code Review\*\*[^\n]*)/, "```markdown\n$1\n```") };
+  assert.equal(runGate({ comments: [marker, oldFinding, fencedResolution, positive], reviews: [native] }).status, 1, "fenced completed row cannot clear findings");
   const codeNegative = { ...negative, body: render({ ...state, code_review: { ...state.code_review, has_any_findings: true, has_unresolved_findings: true } }) };
   assert.equal(runGate({ comments: [marker, codeNegative, positive], reviews: [native] }).status, 1);
   assert.equal(runGate({ comments: [marker, codeNegative, clean] }).status, 0);
