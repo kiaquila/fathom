@@ -61,6 +61,9 @@ function isPositiveSummaryRendering(text, headSha, securityActive) {
 }
 
 function parseStructuredCodexSummary(body, headSha, stateOnly = false) {
+  // Four-space/tab protocol openers are Markdown examples, never authority.
+  if (/^(?: {4,}| *\t[ \t]*)<!--\s*codex-(?:pull-request-review-summary|review-state:)/m.test(body)) return null;
+  body = body.trim();
   const envelope = body.match(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 (.+?) -->\s*## Codex Review Summary(?:\s|$)/s);
   if (!envelope || (body.match(/<!--\s*codex-pull-request-review-summary\b/g) || []).length !== 1 ||
       (body.match(/<!--\s*codex-review-state:/g) || []).length !== 1 || /<!--\s*codex-review-receipt:/.test(body)) return null;
@@ -339,10 +342,10 @@ function codeReviewCompletionTime(body, section = "Code Review", headSha = null)
 // A request or code-only receipt cannot clear a typed finding from another
 // section. Only a newer independently clean snapshot with that section's own
 // canonical completion clock can retire the valid current-head finding.
-function hasValidFindingCompanions(state, body, observed) {
+function hasValidFindingCompanions(state, body, observed, headSha) {
   for (const [section, label, emoji] of [["code_review", "Code Review", "📝"], ["security_review", "Security Review", "🛡️"]]) {
     const value = state[section];
-    if (value.has_any_findings === true || value.has_unresolved_findings === true) continue;
+    if (value.commit_sha === headSha && (value.has_any_findings === true || value.has_unresolved_findings === true)) continue;
     if (value.status === null) {
       if (String(body).split("\n").some(line => line.startsWith(`| ${emoji} **${label}** |`))) return false;
       continue;
@@ -355,8 +358,8 @@ function hasValidFindingCompanions(state, body, observed) {
 
 function structuredNegativeTime(comment, headSha) {
   const observed = Date.parse(comment.updated_at || comment.created_at || "");
-  const state = parseStructuredCodexSummary(String(comment.body || "").trim(), headSha, true);
-  if (!state || !hasValidFindingCompanions(state, comment.body, observed)) return observed;
+  const state = parseStructuredCodexSummary(String(comment.body || ""), headSha, true);
+  if (!state || !hasValidFindingCompanions(state, comment.body, observed, headSha)) return observed;
   const times = [];
   for (const [section, label] of [["code_review", "Code Review"], ["security_review", "Security Review"]]) {
     const value = state[section];
@@ -370,24 +373,24 @@ function structuredNegativeTime(comment, headSha) {
 function hasVisibleStructuredConflict(body, section = null) {
   let visible = withoutCodexHelpFooter(String(body).replace(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 .+? -->\s*## Codex Review Summary/s, ""));
   if (section) visible = visible.split("\n").filter(line => !line.startsWith(section === "code_review" ? "| 🛡️ **Security Review** |" : "| 📝 **Code Review** |")).join("\n");
-  return containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:|\bfound\s+(?:a|[1-9])\b/i.test(visible);
+  return /<!--\s*codex-/i.test(visible) || containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:|\bfound\s+(?:a|[1-9])\b/i.test(visible);
 }
 
 function isSupersededTypedFinding(comment, snapshots, headSha) {
   const body = String(comment.body || "").trim();
-  const state = parseStructuredCodexSummary(body, headSha, true);
+  const state = parseStructuredCodexSummary(String(comment.body || ""), headSha, true);
   if (!state) return false;
   const visible = withoutCodexHelpFooter(body.replace(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 .+? -->\s*## Codex Review Summary/s, ""));
   if (containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:|\bfound\s+(?:a|[1-9])\b/i.test(visible)) return false;
   const observed = Date.parse(comment.updated_at || comment.created_at || "");
-  if (!hasValidFindingCompanions(state, body, observed)) return false;
+  if (!hasValidFindingCompanions(state, body, observed, headSha)) return false;
   const findings = [["code_review", "Code Review"], ["security_review", "Security Review"]].filter(([section]) => state[section].commit_sha === headSha && (state[section].has_any_findings === true || state[section].has_unresolved_findings === true));
   return findings.length > 0 && findings.every(([section, label]) => {
     const completed = codeReviewCompletionTime(body, label, headSha);
     const fence = Math.floor((state[section].status === "completed" && Number.isFinite(completed) && completed <= observed + 999 ? completed : observed) / 1000);
     return snapshots.some(({ comment: clean }) => {
       if (clean === comment || hasVisibleStructuredConflict(clean.body, section)) return false;
-      const cleanState = parseStructuredCodexSummary(String(clean.body || "").trim(), headSha, true);
+      const cleanState = parseStructuredCodexSummary(String(clean.body || ""), headSha, true);
       if (!cleanState) return false;
       const value = cleanState[section];
       const time = codeReviewCompletionTime(clean.body, label, headSha);
@@ -399,7 +402,7 @@ function isSupersededTypedFinding(comment, snapshots, headSha) {
 
 function hasUnclearedStructuredFindings(snapshots, headSha) {
   const states = snapshots.map(({ comment, result }) => ({ comment, result,
-    state: parseStructuredCodexSummary(String(comment.body || "").trim(), headSha, true),
+    state: parseStructuredCodexSummary(String(comment.body || ""), headSha, true),
     time: Date.parse(comment.updated_at || comment.created_at || "")
   })).filter((entry) => entry.state && Number.isFinite(entry.time));
   for (const [section, label] of [["code_review", "Code Review"], ["security_review", "Security Review"]]) {
@@ -449,7 +452,7 @@ export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, n
     const time = Date.parse((strictReceipt ? comment.created_at : comment.updated_at || comment.created_at) || "");
     if (!Number.isFinite(time)) return "pending";
     let result = "pending";
-    if (structured) result = parseStructuredCodexSummary(body, headSha)?.result || "pending";
+    if (structured) result = parseStructuredCodexSummary(String(comment.body || ""), headSha)?.result || "pending";
     else if (strictReceipt) result = "pass";
     else if (containsBlockingCodexSeverity(body)) result = "fail";
     if (structured && result === "pass" &&
