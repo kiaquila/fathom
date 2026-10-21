@@ -21,7 +21,7 @@ function visibleReviewText(value) {
   return String(value || "").replace(/&#(x[0-9a-f]+|[0-9]+);/gi, (entity, digits) => {
     const point = digits[0].toLowerCase() === "x" ? parseInt(digits.slice(1), 16) : Number(digits);
     return point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff) ? String.fromCodePoint(point) : entity;
-  }).replace(/[*`~]/g, "").replace(/_/g, " ");
+  }).replace(/&(nbsp|NonBreakingSpace|ensp|emsp|emsp13|emsp14|numsp|puncsp|thinsp|ThinSpace|hairsp|VeryThinSpace|MediumSpace|ThickSpace|Tab|NewLine);/g, " ").replace(/[*`~]/g, "").replace(/_/g, " ");
 }
 
 function containsNegativeReviewState(text) {
@@ -84,8 +84,8 @@ function parseStructuredCodexSummary(body, headSha, stateOnly = false, negativeO
   // Four-space/tab protocol openers are Markdown examples, never authority.
   const leadingMarkers = body.match(/^\uFEFF?(?:[ \t]*\r?\n)*([ \t]*)<!--\s*codex-(?:pull-request-review-summary|review-state:)/);
   const leadingState = body.match(/^\uFEFF?(?:[ \t]*\r?\n)*[ \t]*<!-- codex-pull-request-review-summary -->[ \t]*\r?\n([ \t]*)<!--\s*codex-review-state:/);
-  const leadingHeading = body.match(/^\uFEFF?(?:[ \t]*\r?\n)*[ \t]*<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 .+? -->[ \t]*\r?\n(?:[ \t]*\r?\n)*([ \t]*)## Codex Review Summary/s);
-  if ([leadingMarkers, leadingState, leadingHeading].some(match => match && (/\t/.test(match[1]) || match[1].length >= 4))) return null;
+  const leadingHeading = body.match(/^\uFEFF?(?:[ \t]*\r?\n)*[ \t]*<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 .+? -->[ \t]*\r?\n(?:[ \t]*\r?\n)*([ \t\uFEFF]*)## Codex Review Summary/s);
+  if ([leadingMarkers, leadingState, leadingHeading].some(match => match && (/\t/.test(match[1]) || match[1].replace(/\uFEFF/g, "").length >= 4))) return null;
   body = body.trim();
   const protocolBody = withoutMarkdownFences(body).replace(/^(?: {4,}| *\t[ \t]*)<!--[^\n]*-->[ \t]*$/gm, "");
   const envelope = body.match(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 (.+?) -->\s*## Codex Review Summary(?:\s|$)/s);
@@ -356,7 +356,7 @@ export function hasUnresolvedCodexFindings(threads = []) {
 // time alone cannot prove that code review ran for this particular request.
 function codeReviewCompletionTime(body, section = "Code Review", headSha = null) {
   // A rendered code example cannot supply a canonical completion row.
-  body = withoutMarkdownFences(body).replace(/<!--[\s\S]*?-->/g, "").replace(/^ {1,3}(?=\|)/gm, "");
+  body = withoutMarkdownFences(body).replace(/<!--[\s\S]*?(?:-->|$)/g, comment => comment.replace(/[^\r\n]/g, "")).replace(/^ {1,3}(?=\|)/gm, "");
   const label = section === "Code Review" ? "📝 \\*\\*Code Review\\*\\*" : "🛡️ \\*\\*Security Review\\*\\*";
   const rowPattern = new RegExp('^\\| ' + label + ' \\| ✅ \\*\\*Completed\\*\\* <relative-time datetime="([^"<>]+)">([^<>]+)</relative-time> \\| `([a-f0-9]{7,40})` \\| (?:Manual request|Automatic review) \\|$', "gm");
   const rows = [...withoutCodexHelpFooter(String(body)).matchAll(rowPattern)];
