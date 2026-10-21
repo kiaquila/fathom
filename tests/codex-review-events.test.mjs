@@ -323,6 +323,8 @@ This comment shows the latest Codex review activity on this pull request.
     const clean = { ...comment(render(value, securityTime)), created_at: time(4), updated_at: time(4) };
     assert.equal(runGate({ comments: [marker, negative, clean, positive], reviews: [native] }).status, expected);
   }
+  const duplicateSection = { ...negative, body: render(cleanState, time(4)) + "\n| 🛡️ **Security Review** | 🔄 **Running** |", created_at: time(4), updated_at: time(4) };
+  assert.equal(runGate({ comments: [marker, negative, duplicateSection] }).status, 1, "duplicate affected section cannot clear findings");
   const clean = { ...comment(render(state)), created_at: time(4), updated_at: time(4) };
   for (const body of [negative.body.replaceAll(headSha, "b".repeat(40)), negative.body.replace('"has_any_findings":true', '"has_any_findings":true,"has_any_findings":true'), negative.body.replace(":v1", ":v2")])
     assert.equal(runGate({ comments: [marker, { ...negative, body }, clean] }).status, 0);
