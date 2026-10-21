@@ -413,6 +413,10 @@ This comment shows the latest Codex review activity on this pull request.
     const indentedTodoClear = { ...historicalResolution, body: historicalResolution.body + "\n" + indent + "<!-- TODO -->" };
     assert.equal(runGate({ comments: [marker, oldFinding, indentedTodoClear, clean, positive], reviews: [native] }).status, 1, "indented nonprotocol HTML cannot normalize into history clearance");
   }
+  for (const trailing of ["\n> ```html\n> <!-- codex-review-state:v1 {} -->\n> ```", "\n<!-- codex-review-state:v1 {} -->"]) {
+  const genuineWithQuotedFence = { ...oldFinding, body: oldFinding.body + trailing };
+  assert.equal(runGate({ comments: [marker, genuineWithQuotedFence, clean, positive], reviews: [native] }).status, 1, "nested blockquote fenced example cannot erase genuine finding");
+  }
   const codeNegative = { ...negative, body: render({ ...state, code_review: { ...state.code_review, has_any_findings: true, has_unresolved_findings: true } }) };
   assert.equal(runGate({ comments: [marker, codeNegative, positive], reviews: [native] }).status, 1);
   assert.equal(runGate({ comments: [marker, codeNegative, clean] }).status, 0);
