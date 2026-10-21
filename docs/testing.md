@@ -97,3 +97,7 @@ Historical section resolution uses independent canonical clean proof for that sa
 Protocol marker openers indented by four spaces or a tab are Markdown examples and grant no typed authority, including approval and historical resolution. Foreign-head finding companions still require a coherent canonical row before an edited observation can be retired.
 
 Malformed protocol discovery is case-insensitive and remains pending. Indentation examples are excluded only in leading-envelope context; a later indented snippet cannot erase real findings. Section projection validates known companion-row rendering before removing it.
+
+Historical resolution validates each visible companion against its typed SHA, status, and canonical clock; canonical running progress remains compatible. All-null companions cannot hide any rendered section label. Accepted leading whitespace is normalized consistently for conflict scanning.
+
+BOM-prefixed indented envelopes remain examples. Later fenced marker examples cannot erase a genuine leading finding. Indented nonprotocol HTML cannot be normalized into historical clearance.
