@@ -350,7 +350,7 @@ function parseStructuredCodexSummary(body, headSha, stateOnly = false, negativeO
   // Conflicting visible severity or a second verdict cannot be hidden by JSON.
   const visibleVerdict = withoutCodexHelpFooter(body.slice(envelope[0].length));
   if (containsBlockingCodexSeverity(body) || containsNegativeReviewState(visibleVerdict) ||
-      /Codex Review:|\bthere\s+(?:is|are)\s+(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b|\bfound\s+(?:an?\b|[1-9]\b|issues\b|(?:(?:[^.!?;\r\n]*?\b(?:and|or|but)\b|[^.!?;\r\n]*?,)\s*)?(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b)/i.test(visibleVerdict)) return { result: "fail", explicitSha: true };
+      /Codex Review:|\b[1-9][0-9]*\s+(?:[a-z-]+\s+)*(?:issues?|findings?|problems?)\b|\bthere\s+(?:is|are)\s+(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b|\bfound\s+(?:an?\b|[1-9]\b|issues\b|(?:(?:[^.!?;\r\n]*?\b(?:and|or|but)\b|[^.!?;\r\n]*?,)\s*)?(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b)/i.test(visibleVerdict)) return { result: "fail", explicitSha: true };
   const security = state.security_review;
   if (code.has_any_findings || code.has_unresolved_findings || security.has_any_findings || security.has_unresolved_findings) {
     return { result: "fail", explicitSha: true };
@@ -648,7 +648,7 @@ function hasVisibleStructuredConflict(body, section = null) {
     if (rows.some(line => !/^\| [📝🛡️]+ \*\*(?:Code|Security) Review\*\* \| (?:✅ \*\*Completed\*\*|🔄 \*\*Running\*\*)(?: since)?(?: <relative-time datetime="[^"<>]+">[^<>]+<\/relative-time>)? \| `[a-f0-9]{7,40}` \| (?:Manual request|Automatic review) \|$/.test(line))) return true;
   }
   if (section) visible = visible.split("\n").filter(line => !line.startsWith(section === "code_review" ? "| 🛡️ **Security Review** |" : "| 📝 **Code Review** |")).join("\n");
-  return /<!--\s*codex-/i.test(visible) || containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:|\bthere\s+(?:is|are)\s+(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b|\bfound\s+(?:an?\b|[1-9]\b|issues\b|(?:(?:[^.!?;\r\n]*?\b(?:and|or|but)\b|[^.!?;\r\n]*?,)\s*)?(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b)/i.test(visibleReviewText(visible));
+  return /<!--\s*codex-/i.test(visible) || containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:|\b[1-9][0-9]*\s+(?:[a-z-]+\s+)*(?:issues?|findings?|problems?)\b|\bthere\s+(?:is|are)\s+(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b|\bfound\s+(?:an?\b|[1-9]\b|issues\b|(?:(?:[^.!?;\r\n]*?\b(?:and|or|but)\b|[^.!?;\r\n]*?,)\s*)?(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b)/i.test(visibleReviewText(visible));
 }
 
 function isSupersededTypedFinding(comment, snapshots, headSha) {
@@ -656,7 +656,7 @@ function isSupersededTypedFinding(comment, snapshots, headSha) {
   const state = parseStructuredCodexSummary(String(comment.body || ""), headSha, true);
   if (!state) return false;
   const visible = withoutCodexHelpFooter(body.replace(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 .+? -->\s*## Codex Review Summary/s, ""));
-  if (containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:|\bthere\s+(?:is|are)\s+(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b|\bfound\s+(?:an?\b|[1-9]\b|issues\b|(?:(?:[^.!?;\r\n]*?\b(?:and|or|but)\b|[^.!?;\r\n]*?,)\s*)?(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b)/i.test(visibleReviewText(visible))) return false;
+  if (containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:|\b[1-9][0-9]*\s+(?:[a-z-]+\s+)*(?:issues?|findings?|problems?)\b|\bthere\s+(?:is|are)\s+(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b|\bfound\s+(?:an?\b|[1-9]\b|issues\b|(?:(?:[^.!?;\r\n]*?\b(?:and|or|but)\b|[^.!?;\r\n]*?,)\s*)?(?!(?:no|zero|0)\b)[^.!?;\r\n]*?\bissues?\b)/i.test(visibleReviewText(visible))) return false;
   const observed = Date.parse(comment.updated_at || comment.created_at || "");
   if (!hasValidFindingCompanions(state, body, observed, headSha)) return false;
   const findings = [["code_review", "Code Review"], ["security_review", "Security Review"]].filter(([section]) => state[section].commit_sha === headSha && (state[section].has_any_findings === true || state[section].has_unresolved_findings === true));
