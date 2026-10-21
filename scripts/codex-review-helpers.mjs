@@ -33,7 +33,7 @@ function withoutAuthorityHtmlBlocks(value) {
 }
 
 function rawVisibleHtml(value) {
-  return value.replace(/<!--[\s\S]*?(?:-->|$)/g, "").replace(/<\/?[a-z](?:[^"'<>]|"[^"]*"|'[^']*')*>/gi, tag => {
+  return value.replace(/<!--[\s\S]*?(?:-->|$)/g, "").replace(/<(?:\/[a-z][a-z0-9-]*\s*|[a-z][a-z0-9-]*(?:\s+[a-z_:][a-z0-9_.:-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))?)*\s*\/?)>/gi, tag => {
     if (/^<\/?(?:summary|details)\b/i.test(tag)) return " ";
     if (/^<img\b/i.test(tag)) return tag.match(/\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i)?.slice(1).find(value => value !== undefined) || "";
     return "";
@@ -83,26 +83,72 @@ function markdownLinkOpenerAllowed(value, index) {
   return (index - preceding - 1) % 2 === 0;
 }
 
-function visibleMarkdownLinkLabels(value) {
+function markdownLabelEnd(value, start) {
+  let depth = 1;
+  for (let index = start; index < value.length; index++) {
+    if (markdownEscapeAt(value, index)) { index++; continue; }
+    if (value[index] === "[") depth++;
+    else if (value[index] === "]" && --depth === 0) return index;
+    else if (value[index] === "\n") return null;
+  }
+  return null;
+}
+
+function visibleMarkdownLinkLabels(value, referenceText = value) {
+  const definitions = new Set([...referenceText.matchAll(/^ {0,3}\[([^\]\n]+)\]:[ \t]*\S+/gm)].map(match => match[1].trim().replace(/\s+/g, " ").toLowerCase()));
+  const defined = label => definitions.has(label.trim().replace(/\s+/g, " ").toLowerCase());
   let output = "", cursor = 0;
-  const starts = /!?\[([^\]\n]*)\]\(/g;
+  const starts = /!?\[/g;
   for (let match; (match = starts.exec(value));) {
     if (!markdownLinkOpenerAllowed(value, match.index)) continue;
-    const index = inlineLinkEnd(value, starts.lastIndex);
-    if (index === null) continue;
-    output += value.slice(cursor, match.index) + match[1];
-    cursor = index;
-    starts.lastIndex = index;
+    const labelEnd = markdownLabelEnd(value, starts.lastIndex);
+    if (labelEnd === null) continue;
+    const label = value.slice(starts.lastIndex, labelEnd);
+    let end = null;
+    if (value[labelEnd + 1] === "(") end = inlineLinkEnd(value, labelEnd + 2);
+    else if (value[labelEnd + 1] === "[") {
+      const referenceEnd = markdownLabelEnd(value, labelEnd + 2);
+      if (referenceEnd !== null && defined(value.slice(labelEnd + 2, referenceEnd) || label)) end = referenceEnd + 1;
+    } else if (defined(label)) end = labelEnd + 1;
+    if (end === null) continue;
+    output += value.slice(cursor, match.index) + label;
+    cursor = end; starts.lastIndex = end;
   }
-  const definitions = new Set([...value.matchAll(/^ {0,3}\[([^\]\n]+)\]:[ \t]*\S+/gm)].map(match => match[1].trim().replace(/\s+/g, " ").toLowerCase()));
-  const defined = label => definitions.has(label.trim().replace(/\s+/g, " ").toLowerCase());
-  return (output + value.slice(cursor))
-    .replace(/!?\[([^\]\n]*)\]\[([^\]\n]*)\]/g, (source, label, reference, offset, input) => markdownLinkOpenerAllowed(input, offset) && defined(reference || label) ? label : source)
-    .replace(/!?\[([^\]\n]+)\](?![[(])/g, (source, label, offset, input) => markdownLinkOpenerAllowed(input, offset) && defined(label) ? label : source);
+  return output + value.slice(cursor);
+}
+
+function literalAwareVisibleText(value) {
+  value = String(value || "").replace(/<!--[\s\S]*?(?:-->|$)/g, "");
+  const ranges = [];
+  for (const match of value.matchAll(/<(pre|code|script|style|textarea)\b(?:[^"'<>]|"[^"]*"|'[^']*')*>[\s\S]*?(?:<\/\1\s*>|$)/gi)) ranges.push([match.index, match.index + match[0].length]);
+  let offset = 0, fence = null, fenceStart = 0;
+  for (const line of value.split(/(?<=\n)/)) {
+    const marker = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (fence) {
+      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && /^\s*$/.test(line.slice(marker[0].length))) { ranges.push([fenceStart, offset + line.length]); fence = null; }
+    } else if (marker) { fence = marker[1]; fenceStart = offset; }
+    offset += line.length;
+  }
+  if (fence) ranges.push([fenceStart, value.length]);
+  const ticks = /`+/g;
+  for (let opening; (opening = ticks.exec(value));) {
+    if (ranges.some(([start, end]) => opening.index >= start && opening.index < end)) continue;
+    const closing = new RegExp("(?<!`)" + opening[0] + "(?!`)", "g"); closing.lastIndex = ticks.lastIndex;
+    const match = closing.exec(value);
+    if (match) { ranges.push([opening.index, match.index + match[0].length]); ticks.lastIndex = match.index + match[0].length; }
+  }
+  ranges.sort((a, b) => a[0] - b[0]);
+  let result = "", cursor = 0;
+  for (const [start, end] of ranges) {
+    if (end <= cursor) continue;
+    if (start > cursor) result += visibleMarkdownLinkLabels(rawVisibleHtml(value.slice(cursor, start)), value);
+    result += rawVisibleHtml(value.slice(Math.max(cursor, start), end)); cursor = end;
+  }
+  return result + visibleMarkdownLinkLabels(rawVisibleHtml(value.slice(cursor)), value);
 }
 
 function visibleReviewText(value) {
-  return visibleMarkdownLinkLabels(rawVisibleHtml(String(value || ""))).replace(/&#(x[0-9a-f]+|[0-9]+);/gi, (entity, digits) => {
+  return literalAwareVisibleText(value).replace(/&#(x[0-9a-f]+|[0-9]+);/gi, (entity, digits) => {
     const point = digits[0].toLowerCase() === "x" ? parseInt(digits.slice(1), 16) : Number(digits);
     return point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff) ? String.fromCodePoint(point) : entity;
   }).replace(/&(ZeroWidthSpace|NegativeVeryThinSpace|NegativeThinSpace|NegativeMediumSpace|NegativeThickSpace|NoBreak|zwnj|zwj|lrm|rlm|shy);/g, "").replace(/\p{Default_Ignorable_Code_Point}/gu, "").replace(/&(nbsp|NonBreakingSpace|ensp|emsp|emsp13|emsp14|numsp|puncsp|thinsp|ThinSpace|hairsp|VeryThinSpace|MediumSpace|ThickSpace|Tab|NewLine);/g, " ").replace(/[*`~]/g, "").replace(/_/g, " ");
