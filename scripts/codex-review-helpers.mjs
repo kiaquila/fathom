@@ -18,16 +18,18 @@ const CODEX_RECEIPT_ENCOURAGEMENTS = new Set([
 ]);
 
 function withoutAuthorityHtmlBlocks(value) {
-  let result = "", cursor = 0, depth = 0;
-  const tags = /<\/?(?:details|pre|code|div)\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi;
+  let result = "", cursor = 0;
+  const stack = [];
+  const tags = /<\/?(address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section|source|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul|pre|script|style|textarea|code)\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi;
   for (let tag; (tag = tags.exec(value));) {
     const fragment = value.slice(cursor, tag.index);
-    result += depth ? fragment.replace(/[^\r\n]/g, "") : fragment;
-    if (/^<\//.test(tag[0])) depth = Math.max(0, depth - 1);
-    else depth++;
+    result += stack.length ? fragment.replace(/[^\r\n]/g, "") : fragment;
+    const name = tag[1].toLowerCase();
+    if (/^<\//.test(tag[0])) { if (stack.at(-1) === name) stack.pop(); }
+    else if (!/\/>$/.test(tag[0]) && !/^(?:base|basefont|col|frame|hr|link|param|source|track)$/.test(name)) stack.push(name);
     cursor = tags.lastIndex;
   }
-  return result + (depth ? value.slice(cursor).replace(/[^\r\n]/g, "") : value.slice(cursor));
+  return result + (stack.length ? value.slice(cursor).replace(/[^\r\n]/g, "") : value.slice(cursor));
 }
 
 function rawVisibleHtml(value) {
@@ -75,10 +77,17 @@ function inlineLinkEnd(value, start) {
   return value[index] === ")" ? index + 1 : null;
 }
 
+function markdownLinkOpenerAllowed(value, index) {
+  let preceding = index - 1;
+  while (preceding >= 0 && value[preceding] === "\\") preceding--;
+  return (index - preceding - 1) % 2 === 0;
+}
+
 function visibleMarkdownLinkLabels(value) {
   let output = "", cursor = 0;
   const starts = /!?\[([^\]\n]*)\]\(/g;
   for (let match; (match = starts.exec(value));) {
+    if (!markdownLinkOpenerAllowed(value, match.index)) continue;
     const index = inlineLinkEnd(value, starts.lastIndex);
     if (index === null) continue;
     output += value.slice(cursor, match.index) + match[1];
@@ -88,8 +97,8 @@ function visibleMarkdownLinkLabels(value) {
   const definitions = new Set([...value.matchAll(/^ {0,3}\[([^\]\n]+)\]:[ \t]*\S+/gm)].map(match => match[1].trim().replace(/\s+/g, " ").toLowerCase()));
   const defined = label => definitions.has(label.trim().replace(/\s+/g, " ").toLowerCase());
   return (output + value.slice(cursor))
-    .replace(/!?\[([^\]\n]*)\]\[([^\]\n]*)\]/g, (source, label, reference) => defined(reference || label) ? label : source)
-    .replace(/!?\[([^\]\n]+)\](?![[(])/g, (source, label) => defined(label) ? label : source);
+    .replace(/!?\[([^\]\n]*)\]\[([^\]\n]*)\]/g, (source, label, reference, offset, input) => markdownLinkOpenerAllowed(input, offset) && defined(reference || label) ? label : source)
+    .replace(/!?\[([^\]\n]+)\](?![[(])/g, (source, label, offset, input) => markdownLinkOpenerAllowed(input, offset) && defined(label) ? label : source);
 }
 
 function visibleReviewText(value) {
