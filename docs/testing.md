@@ -95,3 +95,5 @@ Completed typed findings are dated by their affected section’s valid canonical
 Historical section resolution uses independent canonical clean proof for that same head and section, regardless of later requests or the other section’s progress. It does not itself approve the current request. Visible conflicting findings cannot provide resolution proof.
 
 Protocol marker openers indented by four spaces or a tab are Markdown examples and grant no typed authority, including approval and historical resolution. Foreign-head finding companions still require a coherent canonical row before an edited observation can be retired.
+
+Malformed protocol discovery is case-insensitive and remains pending. Indentation examples are excluded only in leading-envelope context; a later indented snippet cannot erase real findings. Section projection validates known companion-row rendering before removing it.
