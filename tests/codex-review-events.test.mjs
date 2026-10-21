@@ -433,8 +433,8 @@ This comment shows the latest Codex review activity on this pull request.
   }
   const afterVisibleClear = { ...fullyClean, body: fullyClean.body.replaceAll(time(4), time(7)), created_at: time(7), updated_at: time(7) };
   assert.equal(runGate({ comments: [marker, lateVisibleNegative, afterVisibleClear, positive], reviews: [native] }).status, 0, "newer strict same-section completion clears earlier visible finding");
-  for (const warning of ["P&#49; blocker", "P&#x31; blocker", "P*1* blocker", "Do&#32;not&#32;merge", "Do&MediumSpace;not&MediumSpace;merge", "Do&hairsp;not&hairsp;merge"]) {
-    const renderedWarning = { ...historicalResolution, body: historicalResolution.body + "\n" + warning };
+  for (const warning of ["P&#49; blocker", "P&#x31; blocker", "P*1* blocker", "Do&#32;not&#32;merge", "Do&MediumSpace;not&MediumSpace;merge", "Do&hairsp;not&hairsp;merge", "P<strong>1</strong> blocker", "Do <em>not</em> merge", "Do [not](https://example.com) merge", "P&#8203;1 blocker", "Do&#8203;not&#8203;merge", "Do&ZeroWidthSpace;not&ZeroWidthSpace;merge", "Do&ThinSpace;not&ThinSpace;merge"]) {
+    const renderedWarning = { ...historicalResolution, body: historicalResolution.body + "\n<details><summary>ℹ️ About Codex in GitHub</summary>\n" + warning + "\n</details>" };
     assert.equal(runGate({ comments: [marker, oldFinding, renderedWarning, clean, positive], reviews: [native] }).status, 1, "rendered warning cannot clear findings");
   }
   for (const indent of [" ", "  ", "   "]) {
@@ -447,6 +447,10 @@ This comment shows the latest Codex review activity on this pull request.
   assert.equal(runGate({ comments: [marker, oldFinding, unterminatedCommentClear, clean, positive], reviews: [native] }).status, 1, "unterminated HTML comment cannot supply section completion");
   const splitRowClear = { ...historicalResolution, body: historicalResolution.body.replaceAll("✅ **Completed** <relative-time", "✅ **Completed** <!--\nmetadata\n--> <relative-time") };
   assert.equal(runGate({ comments: [marker, oldFinding, splitRowClear, clean, positive], reviews: [native] }).status, 1, "comment removal cannot join split rows into completion proof");
+  const collapsedRowClear = { ...historicalResolution, body: historicalResolution.body.replace(/(\| 🛡️ \*\*Security Review\*\*[^\n]*)/, "<details><summary>ℹ️ About Codex in GitHub</summary>\n$1\n</details>") };
+  assert.equal(runGate({ comments: [marker, oldFinding, collapsedRowClear, clean, positive], reviews: [native] }).status, 1, "collapsed help details cannot supply section completion");
+  const bomMarkerClear = { ...historicalResolution, body: historicalResolution.body.replace(/^<!-- codex-pull-request-review-summary/, "    \uFEFF<!-- codex-pull-request-review-summary") };
+  assert.equal(runGate({ comments: [marker, oldFinding, bomMarkerClear, clean, positive], reviews: [native] }).status, 1, "BOM between indentation and marker cannot create authority");
   const codeNegative = { ...negative, body: render({ ...state, code_review: { ...state.code_review, has_any_findings: true, has_unresolved_findings: true } }) };
   assert.equal(runGate({ comments: [marker, codeNegative, positive], reviews: [native] }).status, 1);
   assert.equal(runGate({ comments: [marker, codeNegative, clean] }).status, 0);
