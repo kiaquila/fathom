@@ -447,9 +447,13 @@ This comment shows the latest Codex review activity on this pull request.
   assert.equal(runGate({ comments: [marker, lateHtmlFoundNegative, fullyClean, positive], reviews: [native] }).status, 1, "rendered finding article keeps observed edit time");
   const lateWordedFoundNegative = { ...oldFinding, body: oldFinding.body + "\nFound one issue", updated_at: time(6) };
   assert.equal(runGate({ comments: [marker, lateWordedFoundNegative, fullyClean, positive], reviews: [native] }).status, 1, "worded finding count keeps observed edit time");
-  for (const statement of ["A bug is present", "A problem persists", "An issue is outstanding"]) {
+  for (const statement of ["A bug is present", "A problem persists", "An issue is outstanding", "A security issue got flagged."]) {
     const footerNegative = { ...oldFinding, body: oldFinding.body + "\n<details><summary>ℹ️ About Codex in GitHub</summary>" + statement + "\n</details>", updated_at: time(6) };
     assert.equal(runGate({ comments: [marker, footerNegative, fullyClean, positive], reviews: [native] }).status, 1, "appended About finding retains observation clock: " + statement);
+    if (statement === "A security issue got flagged.") {
+      const recovery = { ...fullyClean, body: render(cleanState, time(7)), created_at: time(7), updated_at: time(7) };
+      assert.equal(runGate({ comments: [marker, footerNegative, recovery, positive], reviews: [native] }).status, 0, "new canonical clear retires got-passive warning");
+    }
   }
   const lateBugNegative = { ...oldFinding, body: oldFinding.body + "\nThere is a bug.", updated_at: time(6) };
   assert.equal(runGate({ comments: [marker, lateBugNegative, fullyClean, positive], reviews: [native] }).status, 1, "explicit bug edit keeps observed time");
