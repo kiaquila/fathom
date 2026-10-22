@@ -374,22 +374,23 @@ function hasPositiveFindingStatement(text) {
       // Negating a resolution preserves the finding, unlike negating its noun.
       clause = clause.replace(/\b(?:not|never) +(?:(?:be|been|being|get|gets|got|gotten|getting) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b|\b(?:is|are|was|were|has|have|had)n['’]t +(?:(?:be|been|being|get|gets|got|gotten|getting) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/gi, " unresolved ");
       const noun = "(?<![\\p{L}\\p{N}_\\p{Pd}])(?:issues?|findings?|problems?|bugs?|vulnerabilit(?:y|ies))(?![\\p{L}\\p{N}_\\p{Pd}])";
+      const headingNoun = noun.replace("(?![\\p{L}\\p{N}_\\p{Pd}])", "(?![\\p{L}\\p{N}_-])");
       const isAffirmative = (match, counted = false) => {
         const before = clause.slice(0, match.index);
         const after = clause.slice(match.index + match[0].length);
-        if (!counted && /^ *: *(?:no|none|zero|0+(?:,000)*)(?![\p{L}\p{N}_])/iu.test(after)) return false;
+        if (!counted && /^ *(?::|[–—-]) *(?:no|none|zero|0+(?:,000)*) *$/iu.test(after)) return false;
         // Scope negation to this construction, not an unrelated earlier clause.
         if (/\b(?:no|zero|not|without|never|cannot)\b|\b[\p{L}]+n['’]t\b/iu.test(match[0])) return false;
         if (/(?:\b(?:no|zero|not|without|never|cannot)|\b[\p{L}]+n['’]t)(?: +(?:be|been|being|get|gets|got|gotten|getting|considered))* +$/iu.test(before)) return false;
         if (/\b(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/i.test(match[0])) return false;
-        if (/^ +(?:(?:that|which) +)?(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|now) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/i.test(after)) return false;
+        if (/^(?: +| *(?::|[–—-]) *)(?:(?:that|which) +)?(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|now) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/i.test(after)) return false;
         return true;
       };
       const counts = [...clause.matchAll(new RegExp("(?<![\\p{L}\\p{N}_])[*_~`]*([0-9]+(?:,[0-9]{3})*)[*_~`]* +(?:[\\p{L}-]+ +)*?" + noun, "giu"))];
       if (counts.some((match) => !/^0+$/.test(match[1].replaceAll(",", "")) && isAffirmative(match, true))) return true;
       const reporting = clause.replace(new RegExp("(?<![\\p{L}\\p{N}_])[*_~`]*0+(?:,000)*[*_~`]* +(?:[\\p{L}-]+ +)*?" + noun, "giu"), (match) => " ".repeat(match.length));
       const patterns = [
-        "(?<![\\p{L}\\p{N}_] )(?:(?:a|an|one|some|several|multiple) +)?(?:(?!(?:the|this|that|these|those)\\b)[\\p{L}-]+ +)*?" + noun + "(?= *: *[^ \\t])",
+        "(?<![\\p{L}\\p{N}_] )\\b(?:(?:a|an|one|some|several|multiple) +)?(?:(?!(?:the|this|that|these|those)\\b)[\\p{L}-]+ +)*?" + headingNoun + "(?= *(?::|[–—-]) *[^ \\t])",
         "\\b(?:found|[\\p{L}]+ed) +(?:[\\p{L}-]+ +)*?" + noun,
         "(?:\\b(?:a|an|one|some|several|multiple|[0-9]+) +(?:[\\p{L}-]+ +)*?" + noun + "|\\bthe +" + noun + "|(?<![\\p{L}\\p{N}_] )" + noun + ")" + " +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting) +)*(?:found|[\\p{L}]+ed|remains?|exists?)\\b",
         "\\bthere +(?:is|are) +(?:[\\p{L}-]+ +)*?" + noun,
