@@ -377,7 +377,7 @@ function hasPositiveFindingStatement(text) {
     .split(/[.!?;]|(?<![0-9]),|,(?![0-9])|\b(?:and|or|but|however|yet)\b/i).some((clause) => {
       // Negating a resolution preserves the finding, unlike negating its noun.
       clause = clause.replace(/\b(?:not|never) +(?:(?:be|been|being|get|gets|got|gotten|getting) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b|\b(?:is|are|was|were|has|have|had)n['’]t +(?:(?:be|been|being|get|gets|got|gotten|getting) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/gi, " unresolved ");
-      const noun = "(?<![\\p{L}\\p{N}_\\p{Pd}])(?:issues?|findings?|problems?|bugs?|flaws?|defects?|regressions?|vulnerabilit(?:y|ies))(?![\\p{L}\\p{N}_\\p{Pd}])";
+      const noun = "(?<![\\p{L}\\p{N}_\\p{Pd}])(?:issues?|findings?|problems?|bugs?|flaws?|defects?|regressions?|vulnerabilit(?:y|ies))(?![\\p{L}\\p{N}_\\p{Pd}])(?! +(?:tests?|reports?)\\b)";
       const headingNoun = noun.replace("(?![\\p{L}\\p{N}_\\p{Pd}])", "(?![\\p{L}\\p{N}_-])");
       const isAffirmative = (match, counted = false) => {
         const before = clause.slice(0, match.index);
@@ -389,11 +389,15 @@ function hasPositiveFindingStatement(text) {
         const matchedNoun = [...match[0].matchAll(new RegExp(noun, "giu"))].at(-1);
         const predicate = matchedNoun ? match[0].slice(matchedNoun.index + matchedNoun[0].length) : match[0];
         const modifiers = matchedNoun ? match[0].slice(0, matchedNoun.index) : "";
-        if (/^ +(?:do|does|did) +not +(?:exist|exists|remain|remains)\b/iu.test(predicate + after)) return false;
-        if (/\b(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/i.test(modifiers) && !/^ +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting) +)*(?:(?:can|could|may|might|will|would|must|should) +(?:reappear|recur|reopen)|reappears?|reappeared|recurs?|recurred|reopens?|reopened|found +again|(?:still +)?(?:persists?|remains?|exists?))\b/iu.test(predicate + after)) return false;
-        if (/\b(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/i.test(predicate)) return false;
-        if (/^(?: +| *(?::|[–—-]) *)(?:(?:that|which) +)?(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|now|already) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/i.test(after)) return false;
-        if (/\b(?:harmless|benign)\b/i.test(predicate) && /\b(?:harmless|benign) *$/i.test(predicate + after)) return false;
+        const tail = predicate + after;
+        // Absence/resolution is evidence only for an unqualified completed assertion.
+        if (/^ +(?:do|does|did) +not +(?:exist|exists|remain|remains) *$/iu.test(tail)) return false;
+        if (/\b(?:resolved|fixed|addressed|cleared|removed|closed|eliminated) +$/iu.test(before)) return false;
+        const recurrence = /\b(?:reappears?|reappeared|recurs?|recurred|reopens?|reopened|found +again|(?:still +)?(?:persists?|remains?|exists?))\b/iu.test(tail) && !/\b(?:not|never) +(?:reappear|reappeared|recur|recurred|reopen|reopened|persist|remain|exist)\b/iu.test(tail);
+        const obligation = /\b(?:can|could|may|might|will|would|must|should) +(?:(?:be|been|being|get|gets|got) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/iu.test(tail);
+        if (obligation) return true;
+        if (/\b(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/i.test(modifiers) && !recurrence && !/^ +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting) +)*(?:can|could|may|might|will|would|must|should) +(?:reappear|recur|reopen)\b/iu.test(tail)) return false;
+        if (/^(?: +| *(?::|[–—-]) *)(?:(?:that|which) +)?(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|now|already) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated|harmless|benign) *$/iu.test(tail)) return false;
           return true;
       };
       const counts = [...clause.matchAll(new RegExp("(?<![\\p{L}\\p{N}_])[*_~`]*([0-9]+(?:,[0-9]{3})*)[*_~`]* +(?:[\\p{L}-]+ +)*?" + noun, "giu"))];
@@ -403,13 +407,13 @@ function hasPositiveFindingStatement(text) {
       if ([...reporting.matchAll(new RegExp(cardinalPattern, "giu"))].some((match) => isAffirmative(match, true))) return true;
       const patterns = [
         "\\b(?:most|every|numerous) +(?:[\\p{L}-]+ +)*?" + noun + " +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|still) +)*(?:found|[\\p{L}]+ed|remains?|exists?)\\b",
-          "(?<![\\p{L}\\p{N}_] )\\b(?:the +)?(?:(?:critical|security|authentication|code|blocking|high|medium|low|major|minor|unresolved|open|new) +)+" + noun + " +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|still) +)*(?:(?:is|are|was|were) +[\\p{L}]+|found|[\\p{L}]+ed|remains?|exists?)\\b",
+          "(?<![\\p{L}\\p{N}_] )\\b(?:the +)?(?:(?:critical|security|authentication|code|blocking|high|medium|low|major|minor|unresolved|open|new) +)+" + noun + " +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|still) +)*(?:(?:is|are|was|were) +[\\p{L}]+|found|[\\p{L}]+ed|[\\p{L}]+s|remains?|exists?)\\b",
         "\\b(?:a|an) +(?:[\\p{L}-]+ +)*?" + noun + " +(?:(?:can|could|may|might|will|would|must|should) +[\\p{L}-]+|[\\p{L}]+s)\\b",
         "\\bthe +" + noun + " +(?:(?:is|are|was|were) +[\\p{L}-]+|(?:can|could|may|might|will|would|must|should) +[\\p{L}-]+|[\\p{L}]+s)\\b",
         "\\b(?:this|that|these|those) +(?:(?:code|security|blocking|critical|high|medium|low|major|minor|unresolved|open|new|resolved|fixed|addressed|cleared|removed|closed|eliminated) +)*" + noun + " +(?:(?:is|are|was|were) +[\\p{L}-]+|[\\p{L}]+s)\\b",
         "\\b(?:this|that|these|those) +(?:is|are|was|were) +(?:a|an) +(?:[\\p{L}-]+ +)*?" + noun,
         "(?<![\\p{L}\\p{N}_] )\\b(?:(?:a|an|one|some|several|multiple) +)?(?:(?!(?:the|this|that|these|those)\\b)[\\p{L}-]+ +)*?" + headingNoun + "(?= *(?::|[–—-]) *[^ \\t])",
-        "\\b(?:found|[\\p{L}]+ed) +(?:[\\p{L}-]+ +)*?" + noun,
+        "\\b(?:found|introduces|creates|contains|has|[\\p{L}]+ed) +(?:[\\p{L}-]+ +)*?" + noun,
         "(?:\\b(?:a|an|one|some|several|multiple|[0-9]+) +(?:[\\p{L}-]+ +)*?" + noun + "|\\bthe +" + noun + "|(?<![\\p{L}\\p{N}_] )" + noun + ")" + " +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|still) +)*(?:found|[\\p{L}]+ed|remains?|exists?)\\b",
         "\\bthere +(?:still +)?(?:is|are) +(?:[\\p{L}-]+ +)*?" + noun,
         "\\b(?:a|an) +(?:[\\p{L}-]+ +)*?" + noun + " +(?:(?:is|are|was|were) +[\\p{L}-]+|(?!(?:is|was|has)\\b)[\\p{L}]+s)\\b",
@@ -881,7 +885,7 @@ export function hasUnresolvedCodexFindings(threads = []) {
 
 // The shared summary can be edited by security activity. Its server update
 // time alone cannot prove that code review ran for this particular request.
-function codeReviewCompletionTime(body, section = "Code Review", headSha = null) {
+function codeReviewCompletionTime(body, section = "Code Review", headSha = null, createdAt = null) {
   // Rendered-equivalent duplicate labels are ambiguity, never new clock authority.
   const rawRows = String(body).split(/\r?\n/).filter(line => new RegExp("^ {0,3}\\|[^|]*\\b" + section + "\\s*\\|", "i").test(renderedLabelAmbiguityText(line)));
   if (rawRows.length !== 1 || [...rawRows[0].matchAll(/<!--(?:>|->|[\s\S]*?(?:--!?>|$))/g)].some(comment => [...comment[0].matchAll(/\|/g)].some(pipe => markdownLinkOpenerAllowed(comment[0], pipe.index)))) return NaN;
@@ -894,14 +898,14 @@ function codeReviewCompletionTime(body, section = "Code Review", headSha = null)
   if ((String(body).match(new RegExp("^\\| " + label + " \\|", "gm")) || []).length !== 1 || rows.length !== 1 || (headSha && !headSha.startsWith(rows[0][3])) || rows[0][1] !== rows[0][2] ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(rows[0][1])) return NaN;
   const time = Date.parse(rows[0][1]);
-  return Number.isFinite(time) && new Date(time).toISOString().slice(0, 19) === rows[0][1].slice(0, 19) ? time : NaN;
+  return Number.isFinite(time) && (!createdAt || (Number.isFinite(Date.parse(createdAt)) && Math.floor(time / 1000) >= Math.floor(Date.parse(createdAt) / 1000))) && new Date(time).toISOString().slice(0, 19) === rows[0][1].slice(0, 19) ? time : NaN;
 }
 
 
 // A request or code-only receipt cannot clear a typed finding from another
 // section. Only a newer independently clean snapshot with that section's own
 // canonical completion clock can retire the valid current-head finding.
-function hasValidFindingCompanions(state, body, observed, headSha, resolvingSection = null) {
+function hasValidFindingCompanions(state, body, observed, headSha, resolvingSection = null, createdAt = null) {
   for (const [section, label, emoji] of [["code_review", "Code Review", "📝"], ["security_review", "Security Review", "🛡️"]]) {
     const value = state[section];
     if (section === resolvingSection) continue;
@@ -914,7 +918,7 @@ function hasValidFindingCompanions(state, body, observed, headSha, resolvingSect
       ? String(body).replace(`| ${emoji} **${label}** | 🔄 **Running** since`, `| ${emoji} **${label}** | ✅ **Completed**`).replace(`| ${emoji} **${label}** | 🔄 **Running**`, `| ${emoji} **${label}** | ✅ **Completed**`)
       : body;
     if (resolvingSection && value.status === "running" && rowBody === body) return false;
-    const completed = codeReviewCompletionTime(rowBody, label, value.commit_sha);
+    const completed = codeReviewCompletionTime(rowBody, label, value.commit_sha, createdAt);
     if (!(value.status === "completed" || (resolvingSection && value.status === "running")) || !Number.isFinite(completed) || completed > observed + 999) return false;
   }
   return true;
@@ -922,31 +926,31 @@ function hasValidFindingCompanions(state, body, observed, headSha, resolvingSect
 
 // Negative-only projection: a coherent companion's trigger belongs to that
 // section. It never supplies clean/approval authority.
-function negativeSectionRow(body, value, label, observed) {
+function negativeSectionRow(body, value, label, observed, createdAt = null) {
   if (value.status !== "completed") return null;
   const rows = String(body).split(/\r?\n/).filter(line => line.includes("**" + label + "**"));
   if (rows.length !== 1) return null;
   const row = rows[0], structural = (value.has_any_findings === true || value.has_unresolved_findings === true) ? row.replace(/^(\|[^|]*\|[^|]+\|\s*`[a-f0-9]{7,40}`\s*\|)[^|\r\n]*(\|\s*)$/, "$1 Manual request $2") : row;
-  const completed = codeReviewCompletionTime(String(body).replace(row, structural), label, value.commit_sha);
+  const completed = codeReviewCompletionTime(String(body).replace(row, structural), label, value.commit_sha, createdAt);
   return Number.isFinite(completed) && completed <= observed + 999 ? row : null;
 }
 
-function negativeSectionBody(body, state, section, observed) {
+function negativeSectionBody(body, state, section, observed, createdAt = null) {
   const other = section === "code_review" ? "security_review" : "code_review";
-  const row = negativeSectionRow(body, state[other], other === "code_review" ? "Code Review" : "Security Review", observed);
+  const row = negativeSectionRow(body, state[other], other === "code_review" ? "Code Review" : "Security Review", observed, createdAt);
   return row ? String(body).replace(row, "") : body;
 }
 
 function structuredNegativeTime(comment, headSha) {
   const observed = Date.parse(comment.updated_at || comment.created_at || "");
   const state = parseStructuredCodexSummary(String(comment.body || ""), headSha, true);
-  if (!state || !hasValidFindingCompanions(state, comment.body, observed, headSha)) return observed;
+  if (!state || !hasValidFindingCompanions(state, comment.body, observed, headSha, null, comment.created_at)) return observed;
   const times = [];
   for (const [section, label] of [["code_review", "Code Review"], ["security_review", "Security Review"]]) {
     const value = state[section];
     if (value.commit_sha !== headSha || !(value.has_any_findings === true || value.has_unresolved_findings === true)) continue;
-    const completed = codeReviewCompletionTime(comment.body, label, headSha);
-    times.push(!hasVisibleStructuredConflict(negativeSectionBody(comment.body, state, section, observed), section) && value.status === "completed" && Number.isFinite(completed) && completed <= observed + 999 ? Math.floor(completed / 1000) * 1000 : observed);
+    const completed = codeReviewCompletionTime(comment.body, label, headSha, comment.created_at);
+    times.push(!hasVisibleStructuredConflict(negativeSectionBody(comment.body, state, section, observed, comment.created_at), section) && value.status === "completed" && Number.isFinite(completed) && completed <= observed + 999 ? Math.floor(completed / 1000) * 1000 : observed);
   }
   return times.length ? Math.max(...times) : observed;
 }
@@ -970,22 +974,22 @@ function isSupersededTypedFinding(comment, snapshots, headSha) {
   if (!state) return false;
   const visible = withoutCodexHelpFooter(body.replace(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 .+? -->\s*## Codex Review Summary/s, ""));
   const observed = Date.parse(comment.updated_at || comment.created_at || "");
-  if (!hasValidFindingCompanions(state, body, observed, headSha)) return false;
+  if (!hasValidFindingCompanions(state, body, observed, headSha, null, comment.created_at)) return false;
   const findings = [["code_review", "Code Review"], ["security_review", "Security Review"]].filter(([section]) => state[section].commit_sha === headSha && (state[section].has_any_findings === true || state[section].has_unresolved_findings === true));
   return findings.length > 0 && findings.every(([section, label]) => {
-    const scoped = negativeSectionBody(body, state, section, observed);
-    const ownRow = negativeSectionRow(body, state[section], label, observed);
+    const scoped = negativeSectionBody(body, state, section, observed, comment.created_at);
+    const ownRow = negativeSectionRow(body, state[section], label, observed, comment.created_at);
     const hardBody = ownRow ? scoped.replace(ownRow, "") : scoped;
     const visible = withoutCodexHelpFooter(hardBody);
     if (containsBlockingCodexSeverity(hardBody) || containsNegativeReviewState(visible) || /Codex Review:/i.test(visibleReviewText(visible))) return false;
-    const completed = codeReviewCompletionTime(body, label, headSha);
+    const completed = codeReviewCompletionTime(body, label, headSha, comment.created_at);
     const fence = Math.floor((!hasVisibleStructuredConflict(scoped, section) && state[section].status === "completed" && Number.isFinite(completed) && completed <= observed + 999 ? completed : observed) / 1000);
     return snapshots.some(({ comment: clean }) => {
       if (clean === comment || hasVisibleStructuredConflict(clean.body, section)) return false;
       const cleanState = parseStructuredCodexSummary(String(clean.body || ""), headSha, true);
-      if (!cleanState || !hasValidFindingCompanions(cleanState, clean.body, Date.parse(clean.updated_at || clean.created_at || ""), headSha, section)) return false;
+      if (!cleanState || !hasValidFindingCompanions(cleanState, clean.body, Date.parse(clean.updated_at || clean.created_at || ""), headSha, section, clean.created_at)) return false;
       const value = cleanState[section];
-      const time = codeReviewCompletionTime(clean.body, label, headSha);
+      const time = codeReviewCompletionTime(clean.body, label, headSha, clean.created_at);
       const updated = Date.parse(clean.updated_at || clean.created_at || "");
       return value.commit_sha === headSha && value.status === "completed" && value.has_any_findings === false && value.has_unresolved_findings === false && Number.isFinite(time) && time <= updated + 999 && Math.floor(time / 1000) > fence;
     });
@@ -1003,14 +1007,14 @@ function hasUnclearedStructuredFindings(snapshots, headSha) {
       (state[section].has_any_findings === true || state[section].has_unresolved_findings === true));
     if (!findings.length) continue;
     const fence = Math.max(...findings.map(({ comment, state, time }) => {
-      const completed = codeReviewCompletionTime(comment.body, label, headSha);
+      const completed = codeReviewCompletionTime(comment.body, label, headSha, comment.created_at);
       return Math.floor((state[section].status === "completed" && Number.isFinite(completed) && completed <= time + 999 ? completed : time) / 1000);
     }));
     const cleared = states.some(({ comment, state, result, time }) => {
       if (!state) return false;
       const value = state[section];
-      const completed = codeReviewCompletionTime(comment.body, label, headSha);
-      return hasValidFindingCompanions(state, comment.body, time, headSha, section) && !hasVisibleStructuredConflict(comment.body, section) && value.commit_sha === headSha && value.status === "completed" &&
+      const completed = codeReviewCompletionTime(comment.body, label, headSha, comment.created_at);
+      return hasValidFindingCompanions(state, comment.body, time, headSha, section, comment.created_at) && !hasVisibleStructuredConflict(comment.body, section) && value.commit_sha === headSha && value.status === "completed" &&
         value.has_any_findings === false && value.has_unresolved_findings === false &&
         Number.isFinite(completed) && completed <= time + 999 && Math.floor(completed / 1000) > fence;
     });
@@ -1025,13 +1029,13 @@ function isCompletedCleanHistory(comment, headSha) {
   const observed = Date.parse(comment.updated_at || comment.created_at || "");
   return parseStructuredCodexSummary(body, headSha)?.result === "pass" && state &&
     [["code_review", "Code Review"], ["security_review", "Security Review"]].every(([key, label]) => {
-      const value = state[key], time = codeReviewCompletionTime(body, label, headSha);
+      const value = state[key], time = codeReviewCompletionTime(body, label, headSha, comment.created_at);
       return value.commit_sha === headSha && value.status === "completed" && value.has_any_findings === false && value.has_unresolved_findings === false && Number.isFinite(time) && time <= observed + 999;
     });
 }
 
-function hasFreshCodeReviewCompletion(body, requestMarker, updatedAt) {
-  const time = codeReviewCompletionTime(body);
+function hasFreshCodeReviewCompletion(body, requestMarker, updatedAt, createdAt) {
+  const time = codeReviewCompletionTime(body, "Code Review", null, createdAt);
   const cutoff = Date.parse(requestMarker?.sourceCommentCreatedAt || requestMarker?.requestedAt || requestMarker?.commentCreatedAt || "");
   const snapshotTime = Date.parse(updatedAt || "");
   // GitHub comment timestamps have second precision; row times retain fractions.
@@ -1061,7 +1065,7 @@ export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, n
     else if (containsBlockingCodexSeverity(body)) result = "fail";
     if (structured && result === "pass" &&
         (!isStrictlyAfterCodexReviewRequest(new Date(time).toISOString(), requestMarker) ||
-         !hasFreshCodeReviewCompletion(body, requestMarker, comment.updated_at || comment.created_at))) result = "pending";
+         !hasFreshCodeReviewCompletion(body, requestMarker, comment.updated_at || comment.created_at, comment.created_at))) result = "pending";
     candidates.push({ result, time: structured && result === "pass" ? Math.floor(codeReviewCompletionTime(body) / 1000) * 1000 : structured && result === "fail" ? structuredNegativeTime(comment, headSha) : time, snapshotTime: structured && result === "fail" ? structuredNegativeTime(comment, headSha) : time, structured, comment, strictReceipt });
   }
   if (hasUnclearedStructuredFindings(candidates.filter((entry) => entry.structured), headSha)) return "pending";
