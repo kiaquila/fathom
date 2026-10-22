@@ -129,3 +129,5 @@ Warning projection removes inline-code delimiters while preserving literal code 
 Negative observation clocks are scoped to each structurally coherent section: a companion section's warning cannot renew an already cleared finding. Canonical completed historical clears do not approve a new request; after all findings retire, only a later strict, fresh, head-bound receipt can supply that approval. Pending, malformed, unresolved and global-warning guards remain blocking. GFM type-7 HTML blocks cannot interrupt a paragraph; table boundaries require matching unescaped-pipe cells and valid delimiter cells. Warning projection removes only active matched emphasis, preserving literal punctuation and explicit negation.
 
 Canonical completion authority cannot predate the containing comment creation second. An invalid historical finding clock falls back to its observed update time; only a genuinely newer section completion can retire it.
+
+The gate regression suite distinguishes active modal authentication bypass from informational mention or discussion, including edited historical findings and genuinely newer canonical recovery.
