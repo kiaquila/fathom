@@ -381,7 +381,7 @@ function hasPositiveFindingStatement(text) {
     .split(/[.!?;]|(?<![0-9]),|,(?![0-9])|\b(?:and|or|but|however|yet)\b/i).some((clause) => {
       // Negating a resolution preserves the finding, unlike negating its noun.
       clause = clause.replace(/\b(?:not|never) +(?:(?:be|been|being|get|gets|got|gotten|getting) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b|\b(?:is|are|was|were|has|have|had)n['’]t +(?:(?:be|been|being|get|gets|got|gotten|getting) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/gi, " unresolved ");
-      const noun = "(?<![\\p{L}\\p{N}_\\p{Pd}])(?:issues?|findings?|problems?|bugs?|flaws?|defects?|regressions?|vulnerabilit(?:y|ies)|security +risks?)(?![\\p{L}\\p{N}_\\p{Pd}])(?! +(?:tests?|reports?|fix(?:es)?)\\b)";
+      const noun = "(?<![\\p{L}\\p{N}_\\p{Pd}])(?:issues?|findings?|problems?|bugs?|flaws?|defects?|regressions?|vulnerabilit(?:y|ies)|security +risks?)(?![\\p{L}\\p{N}_\\p{Pd}])(?! +(?:tests?|reports?)\\b)";
       const headingNoun = noun.replace("(?![\\p{L}\\p{N}_\\p{Pd}])", "(?![\\p{L}\\p{N}_-])");
       const isAffirmative = (match, counted = false) => {
         const before = clause.slice(0, match.index);
@@ -394,17 +394,19 @@ function hasPositiveFindingStatement(text) {
         const predicate = matchedNoun ? match[0].slice(matchedNoun.index + matchedNoun[0].length) : match[0];
         const modifiers = matchedNoun ? match[0].slice(0, matchedNoun.index) : "";
         const tail = predicate + after;
-        // An informational mention does not assert that the named finding exists.
-        if (/\b(?:mention(?:s|ed|ing)?|discuss(?:es|ed|ing)?) +/iu.test(modifiers)) return false;
         // Absence/resolution is evidence only for an unqualified completed assertion.
         if (/^ +(?:do|does|did) +not +(?:exist|exists|remain|remains) *$/iu.test(tail)) return false;
         if (/\b(?:resolved|fixed|addressed|cleared|removed|closed|eliminated) +$/iu.test(before)) return false;
         const recurrence = /\b(?:reappears?|reappeared|recurs?|recurred|reopens?|reopened|found +again|(?:still +)?(?:persists?|remains?|exists?))\b/iu.test(tail) && !/\b(?:not|never) +(?:reappear|reappeared|recur|recurred|reopen|reopened|persist|remain|exist)\b/iu.test(tail);
+        // Remediation compounds stay neutral unless their own state is reaffirmed.
+        if (/^ +fix(?:es)?\b/iu.test(tail) && !recurrence) return false;
+        // A mention is informational only when its own finding is not reaffirmed.
+        if (/\b(?:mention(?:s|ed|ing)?|discuss(?:es|ed|ing)?) +/iu.test(modifiers) && !recurrence) return false;
         if (/\b(?:resolves?|fix(?:es)?|address(?:es)?|clears?|removes?|closes?|eliminates?|prevents?|avoids?|mitigates?) +(?:a|an) +/iu.test(modifiers) && !recurrence && !tail.trim()) return false;
         const obligation = /\b(?:can|could|may|might|will|would|must|should) +(?:(?:be|been|being|get|gets|got) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/iu.test(tail);
         if (obligation) return true;
         if (/\b(?:resolved|fixed|addressed|cleared|removed|closed|eliminated)\b/i.test(modifiers) && !recurrence && !/^ +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting) +)*(?:can|could|may|might|will|would|must|should) +(?:reappear|recur|reopen)\b/iu.test(tail)) return false;
-        if (/^(?: +| *(?::|[–—-]) *)(?:(?:that|which) +)?(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|now|already) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated|harmless|benign) *$/iu.test(tail)) return false;
+        if (/^(?: +| *(?::|[–—-]) *)(?:(?:that|which) +)?(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|now|already|remains?) +)*(?:resolved|fixed|addressed|cleared|removed|closed|eliminated|harmless|benign) *$/iu.test(tail)) return false;
           return true;
       };
       const counts = [...clause.matchAll(new RegExp("(?<![\\p{L}\\p{N}_])[*_~`]*([0-9]+(?:,[0-9]{3})*)[*_~`]* +(?:[\\p{L}-]+ +)*?" + noun, "giu"))];
@@ -415,7 +417,7 @@ function hasPositiveFindingStatement(text) {
       const patterns = [
         "\\b(?:is|are) +vulnerable +to\\b",
         "\\bauthentication +(?:can|could|may|might) +be +bypassed\\b",
-        "\\b(?:can|could|may|might) +bypass +authentication\\b",
+        "\\b(?:(?:no +(?:(?!(?:is|are|was|were|has|have|had|can|could|may|might)\\b)[\\p{L}-]+ +)*?)?[\\p{L}-]+ +)?(?:(?:can|could|may|might) +|(?:is|are) +able +to +)bypass +authentication\\b",
         "\\b(?:most|every|numerous) +(?:[\\p{L}-]+ +)*?" + noun + " +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|still) +)*(?:found|[\\p{L}]+ed|remains?|exists?)\\b",
           "(?<![\\p{L}\\p{N}_] )\\b(?:the +)?(?:(?:critical|security|authentication|code|blocking|high|medium|low|major|minor|unresolved|open|new) +)+" + noun + " +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|still) +)*(?:(?:is|are|was|were) +[\\p{L}]+|found|[\\p{L}]+ed|[\\p{L}]+s|remains?|exists?)\\b",
         "\\b(?:a|an) +(?:[\\p{L}-]+ +)*?" + noun + " +(?:(?:can|could|may|might|will|would|must|should) +[\\p{L}-]+|[\\p{L}]+s)\\b",
@@ -435,6 +437,8 @@ function hasPositiveFindingStatement(text) {
       return patterns.some((pattern) => [...reporting.matchAll(new RegExp(pattern, "giu"))].some((match) => isAffirmative(match)));
     }));
 }
+
+
 
 function visibleReviewText(value) {
   return literalAwareVisibleText(value);
