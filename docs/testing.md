@@ -88,46 +88,12 @@ evidence remains blocking; security-only edits cannot advance that order.
 
 Static clean receipts retain their publication time; unknown and negative receipt edits use their server update time and block older or equal-time machine completion.
 
-Valid exact-head structured findings survive a repeated request until a newer clean machine snapshot completes the affected review section. A security finding requires its own newer canonical Security Review completion timestamp; all-null security state and code-only approval cannot clear it. Same-second completions remain pending. Malformed, duplicate or foreign-head history cannot create this durable fence; the latest invalid signal still blocks.
+## Structured history and native presentation
 
-Completed typed findings are dated by their affected section’s valid canonical completion row; an edit to another section does not renew them. Missing or invalid completion rows retain the server observation time.
+Trusted closed-schema current-head findings survive repeated requests. Each section requires its own strictly newer canonical clean completion to clear its history. Inactive security state, a code-only receipt, reactions, or a formal approval cannot clear security findings. Invalid own clocks fall back to observation time; own completion cannot predate comment creation or exceed the observed update bucket. Valid carried companion clocks retain their existing independent section semantics.
 
-Historical section resolution uses independent canonical clean proof for that same head and section, regardless of later requests or the other section’s progress. It does not itself approve the current request. Visible conflicting findings cannot provide resolution proof.
+Completion-clock authority requires the entire native presentation: the exact summary envelope, heading and introduction, the contiguous native table, exactly the expected active rows with matching typed status/SHA/clock, and only the optional exact known Codex help footer. Blank lines inside the table, duplicate or hidden rows, extra protocol, unknown HTML, code examples and arbitrary prose do not provide clocks or clearing authority. Explicit typed negatives survive such unknown presentation at observation time. A fresh canonical same-section completion can recover; English wording and Markdown rendering are never used to decide that an unknown suffix is harmless enough to backdate a finding.
 
-Protocol marker openers indented by four spaces or a tab are Markdown examples and grant no typed authority, including approval and historical resolution. Foreign-head finding companions still require a coherent canonical row before an edited observation can be retired.
+Static no-findings receipts require the exact verdict, one matching reviewed-commit binding and a closed catalog of observed native closings. One exact trailing service-owned View task link and the exact known help footer are supported. Uncatalogued or contradictory suffixes remain pending. The fixture corpus records 19 observed replies and their public provenance.
 
-Malformed protocol discovery is case-insensitive and remains pending. Indentation examples are excluded only in leading-envelope context; a later indented snippet cannot erase real findings. Section projection validates known companion-row rendering before removing it.
-
-Historical resolution validates each visible companion against its typed SHA, status, and canonical clock; canonical running progress remains compatible. All-null companions cannot hide any rendered section label. Accepted leading whitespace is normalized consistently for conflict scanning.
-
-BOM-prefixed indented envelopes remain examples. Later fenced marker examples cannot erase a genuine leading finding. Indented nonprotocol HTML cannot be normalized into historical clearance.
-
-Explicit negative facts in a canonical leading summary marker, closed typed state and summary heading survive trailing presentation, including protocol examples. This negative-only extraction never grants approval or section clearance; those require strict full-body validation. Duplicate markers within the leading envelope remain invalid.
-
-Visible negative edits retain server observation time; fenced example rows cannot supply completion clocks. Negative-only parsing still requires marker uniqueness within the leading envelope.
-
-Protocol and completion-row extraction share the same stateful Markdown fence scanner; a closer with the same character and at least the opener length ends the example.
-
-A summary heading indented as Markdown code cannot establish typed authority. A later strict same-section completion can still clear an earlier visible finding.
-
-Visible contradiction checks decode numeric character references and inline Markdown before checking P0–P2 and the known “Do not merge” warning. Canonical row scans exclude HTML comments and use the same accepted zero-to-three-space indentation when detecting duplicate sections. Raw protocol, JSON, SHA and timestamp validation remain unchanged.
-
-HTML-comment row exclusion consumes an unterminated comment through EOF and preserves line boundaries. A BOM does not hide code indentation before the summary heading; rendered whitespace references cannot hide the known Do not merge warning.
-
-Existing warning checks use rendered HTML text and Markdown link labels, ignoring Unicode default-ignorable characters, including variation selectors. Collapsed informational details cannot supply canonical completion rows.
-
-BOM placement cannot erase raw code indentation before protocol markers; zero-width formatting cannot hide the known Do not merge warning.
-
-Visible warning projection preserves quoted HTML attributes, image alternative text, balanced and reference link labels, and literal malformed links. Completion-row visibility removes comments before Markdown fences and tracks nested details through the outer closing tag.
-
-Presentation warning checks remove raw comments before links, tokenize quoted HTML before decoding entities, and resolve defined full, collapsed, shortcut references and optional inline-link titles. Undefined or malformed links stay literal. Visible details-summary section text can invalidate completion evidence, but never supplies canonical authority.
-
-Canonical completion rows cannot come from GFM raw HTML blocks, including generic complete-tag blocks. Raw-text terminators and blank-line block boundaries follow the HTML block class; unrelated closing tags cannot expose a row. Escaped Markdown link openers remain literal across inline and defined-reference warning projection.
-
-Warning projection removes inline-code delimiters while preserving literal code contents. GFM raw HTML blocks suppress Markdown parsing until their standard terminator, while HTML and entities still render; active Markdown in an About footer requires a blank line after its summary. Only validated reference-definition labels and balanced destinations can hide definition text.
-
-Negative observation clocks are scoped to each structurally coherent section: a companion section's warning cannot renew an already cleared finding. Canonical completed historical clears do not approve a new request; after all findings retire, only a later strict, fresh, head-bound receipt can supply that approval. Pending, malformed, unresolved and global-warning guards remain blocking. GFM type-7 HTML blocks cannot interrupt a paragraph; table boundaries require matching unescaped-pipe cells and valid delimiter cells. Warning projection removes only active matched emphasis, preserving literal punctuation and explicit negation.
-
-Canonical completion authority cannot predate the containing comment creation second. An invalid historical finding clock falls back to its observed update time; only a genuinely newer section completion can retire it.
-
-The gate regression suite distinguishes active modal authentication bypass from informational mention or discussion, including edited historical findings and genuinely newer canonical recovery.
+A completed code lifecycle with both finding flags null is not approval. With security inactive, it may accompany an independent trusted strict current-request receipt only when that receipt is unedited and its original creation falls between lifecycle creation and its validated own completion. The three observed native lifecycle pairs and negative mutations are regression fixtures. Active security, mixed flags, stale/edited/out-of-window receipts, unknown presentation, deletions, withdrawal markers and unresolved threads retain their independent blocking semantics.

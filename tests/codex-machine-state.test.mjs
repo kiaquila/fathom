@@ -6,7 +6,7 @@ const oldSha = "fedcba9876543210fedcba9876543210fedcba98";
 const requestMarker = { sourceCommentCreatedAt: "2026-10-01T10:00:00Z", sourceCommentId: "1" };
 const state = (overrides = {}) => ({ code_review: { commit_sha: headSha, status: "completed", has_any_findings: false, has_unresolved_findings: false, ...overrides }, security_review: { commit_sha: null, status: null, has_any_findings: null, has_unresolved_findings: null } });
 const comment = (body, time = "2026-10-01T10:02:00Z", extra = {}) => ({ body, user: { login: "chatgpt-codex-connector[bot]" }, created_at: time, updated_at: time, ...extra });
-const receipt = `<!-- codex-review-receipt:v1 -->\n\nCodex Review: Didn't find any major issues. Swish!\n\n**Reviewed commit:** \`${headSha.slice(0, 10)}\``;
+const receipt = `<!-- codex-review-receipt:v1 -->\n\nCodex Review: Didn't find any major issues. Uncatalogued encouragement.\n\n**Reviewed commit:** \`${headSha.slice(0, 10)}\``;
 const summary = (value = state()) => `<!-- codex-pull-request-review-summary -->
 <!-- codex-review-state:v1 ${JSON.stringify(value)} -->
 
@@ -21,9 +21,9 @@ This comment shows the latest Codex review activity on this pull request.
 
 const evaluate = (comments) => evaluateCodexCommentEvidence(comments, headSha, requestMarker);
 test("independent complete machine proof accepts opaque closings only when newer", () => {
-  for (const closing of ["Swish!", "You're on a roll.", "Another round soon, please!", "Chef's kiss.", "A sparkling little triumph!", "No worries!"]) {
-    const opaque = receipt.replace("Swish!", closing);
-    if (["Swish!", "A sparkling little triumph!", "No worries!"].includes(closing))
+  for (const closing of ["Uncatalogued encouragement.", "You're on a roll.", "Another round soon, please!", "Chef's kiss.", "A sparkling little triumph!", "No worries!"]) {
+    const opaque = receipt.replace("Uncatalogued encouragement.", closing);
+    if (["Uncatalogued encouragement.", "A sparkling little triumph!", "No worries!"].includes(closing))
       assert.equal(evaluate([comment(opaque)]), "pending");
     for (const time of ["2026-10-01T10:01:00Z", "2026-10-01T10:03:00Z"])
       assert.equal(evaluate([comment(opaque, time), comment(summary())]),
@@ -45,7 +45,7 @@ test("machine proof is strict, fresh, exact-head and cannot erase newer bad stat
 });
 test("opaque receipt cannot smuggle known findings, metadata or malformed structure", () => {
   for (const suffix of ["P3 advisory; P0 issue.", "Found a P0 issue.", "Found a P1 issue.", "Found a P2 issue.", "Authentication leaks credentials.", "The deployment deletes all customer data.", "Review incomplete.", "<!-- unknown -->", "Status: completed", "\nExtra line", "Codex Review: Approved."]) {
-    assert.notEqual(evaluate([comment(summary()), comment(receipt.replace("Swish!", suffix), "2026-10-01T10:03:00Z")]), "pass", suffix);
+    assert.notEqual(evaluate([comment(summary()), comment(receipt.replace("Uncatalogued encouragement.", suffix), "2026-10-01T10:03:00Z")]), "pass", suffix);
   }
 });
 
@@ -58,7 +58,7 @@ test("equal-time malformed, wrong-head and pending snapshots invalidate clean pr
   }
   for (const body of [receipt + "\n<!-- codex-review-receipt:v1 -->", receipt + "\n<!-- unknown -->",
     receipt + "\n**Reviewed commit:** `0123456789`", receipt + "\nP0: issue",
-    receipt.replace("Swish!", "Swish!\nAnother line"), receipt.replace("0123456789", "fedcba9876")])
+    receipt.replace("Uncatalogued encouragement.", "Uncatalogued encouragement.\nAnother line"), receipt.replace("0123456789", "fedcba9876")])
     assert.notEqual(evaluate([comment(summary()), comment(body, "2026-10-01T10:03:00Z")]), "pass", body);
 });
 
@@ -68,7 +68,7 @@ test("unknown receipt at the same time as clean proof remains pending", () => {
 
 test("unknown contrary prose never inherits earlier or equal-time clean proof", () => {
   for (const closing of ["Do not merge.", "A vulnerability remains.", "Needs work."]) {
-    const body = receipt.replace("Swish!", closing);
+    const body = receipt.replace("Uncatalogued encouragement.", closing);
     assert.notEqual(evaluate([comment(body), comment(summary())]), "pass", closing);
     assert.notEqual(evaluate([comment(summary()), comment(body, "2026-10-01T10:03:00Z")]), "pass", closing);
     assert.equal(evaluate([comment(body), comment(summary().replaceAll("2026-10-01T10:02:00Z", "2026-10-01T10:03:00Z"), "2026-10-01T10:03:00Z")]), "pass", closing);
@@ -85,7 +85,7 @@ test("security-only summary updates cannot renew an old code result for a new re
   assert.equal(evaluateCodexCommentEvidence([comment(fresh, "2026-10-01T10:04:00Z")], headSha, repeated), "pass");
 });
 test("strict receipts keep same-second source-comment ID ordering", () => {
-  const strict = receipt.replace("Swish!", ":rocket:");
+  const strict = receipt.replace("Uncatalogued encouragement.", ":rocket:");
   assert.equal(evaluate([comment(strict, requestMarker.sourceCommentCreatedAt, { id: "2" })]), "pass");
   assert.notEqual(evaluate([comment(strict, requestMarker.sourceCommentCreatedAt, { id: "1" })]), "pass");
 });

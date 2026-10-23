@@ -3,18 +3,27 @@ const CODEX_REVIEW_LOGIN = "chatgpt-codex-connector[bot]";
 // Observed native encouragement, including legacy receipts in this repository.
 // Unknown prose must not turn a contradictory verdict into approval.
 const CODEX_RECEIPT_ENCOURAGEMENTS = new Set([
-  "Another round soon, please!",
-  "Delightful!",
-  "Chef's kiss.",
-  "You're on a roll.",
-  "Can't wait for the next one!",
-  "What shall we delve into next?",
-  "Breezy!",
+  "🚀",
+  "🎉",
+  "",
+  ":+1:",
+  ":rocket:",
+  ":tada:",
   "Already looking forward to the next diff.",
-  "More of your lovely PRs please.",
-  "Keep them coming!",
+  "Another round soon, please!",
+  "Bravo.",
+  "Breezy!",
+  "Can't wait for the next one!",
+  "Chef's kiss.",
+  "Delightful!",
+  "Hooray!",
   "Keep it up!",
-  "Hooray!"
+  "Keep them coming!",
+  "More of your lovely PRs please.",
+  "Nice work!",
+  "Swish!",
+  "What shall we delve into next?",
+  "You're on a roll."
 ]);
 
 function markdownTableCells(line) {
@@ -390,7 +399,9 @@ function hasPositiveFindingStatement(text) {
         // Scope negation to this construction, not an unrelated earlier clause.
         if (/\b(?:no|zero|not|without|never|cannot)\b|\b[\p{L}]+n['’]t\b/iu.test(match[0])) return false;
         if (/(?:\b(?:no|zero|not|without|never|cannot)|\b[\p{L}]+n['’]t)(?: +(?:be|been|being|get|gets|got|gotten|getting|considered))* +$/iu.test(before)) return false;
-        if (/^\s*nobody +(?:(?:can|could|may|might) +(?:[\p{L}]+ly +)*|(?:is|are) +able +to +)bypass +authentication\b/iu.test(match[0])) return false;
+        if (/^\s*(?:nobody|none|neither +[\p{L}-]+) +(?:(?:can|could|may|might) +(?:[\p{L}]+ly +)*|(?:is|are) +(?:able|possible) +to +)bypass +authentication\b/iu.test(match[0])) return false;
+        if (/\bnone +of +(?:the +)?$/iu.test(before)) return false;
+        if (/ +(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting) *$/iu.test(match[0]) && /^ +(?:not|never)\b/iu.test(after)) return false;
         const matchedNoun = [...match[0].matchAll(new RegExp(noun, "giu"))].at(-1);
         const predicate = matchedNoun ? match[0].slice(matchedNoun.index + matchedNoun[0].length) : match[0];
         const modifiers = matchedNoun ? match[0].slice(0, matchedNoun.index) : "";
@@ -398,7 +409,7 @@ function hasPositiveFindingStatement(text) {
         // Absence/resolution is evidence only for an unqualified completed assertion.
         if (/^ +(?:do|does|did) +not +(?:exist|exists|remain|remains) *$/iu.test(tail)) return false;
         if (/\b(?:resolved|fixed|addressed|cleared|removed|closed|eliminated) +$/iu.test(before)) return false;
-        const recurrence = /\b(?:reappears?|reappeared|recurs?|recurred|reopens?|reopened|found +again|(?:is|are) +(?:open|outstanding|unresolved)|(?:still +)?(?:persists?|remains?|exists?))\b/iu.test(tail) && !/\b(?:not|never) +(?:reappear|reappeared|recur|recurred|reopen|reopened|persist|remain|exist)\b/iu.test(tail);
+        const recurrence = /\b(?:reappears?|reappeared|recurs?|recurred|reopens?|reopened|found +again|unresolved|(?:is|are) +(?:still +)?(?:open|outstanding|unresolved)|(?:still +)?(?:persists?|remains?|exists?))\b/iu.test(tail) && !/\b(?:not|never) +(?:reappear|reappeared|recur|recurred|reopen|reopened|persist|remain|exist)\b/iu.test(tail);
         // Remediation compounds stay neutral unless their own state is reaffirmed.
         if (/^ +fix(?:es)?\b/iu.test(tail) && !recurrence) return false;
         // A mention is informational only when its own finding is not reaffirmed.
@@ -418,7 +429,7 @@ function hasPositiveFindingStatement(text) {
       const patterns = [
         "\\b(?:is|are) +vulnerable +to\\b",
         "\\bauthentication +(?:can|could|may|might) +be +bypassed\\b",
-        "\\b(?:(?:no +(?:(?!(?:is|are|was|were|has|have|had|can|could|may|might)\\b)[\\p{L}-]+ +)*?)?[\\p{L}-]+ +)?(?:(?:can|could|may|might) +(?:[\\p{L}]+ly +)*|(?:is|are) +able +to +)bypass +authentication\\b",
+        "\\b(?:(?:(?:no|neither) +(?:(?!(?:is|are|was|were|has|have|had|can|could|may|might)\\b)[\\p{L}-]+ +)*?)?[\\p{L}-]+ +)?(?:(?:can|could|may|might) +(?:[\\p{L}]+ly +)*|(?:is|are) +(?:able|possible) +to +)bypass +authentication\\b",
         "\\b(?:most|every|numerous) +(?:[\\p{L}-]+ +)*?" + noun + " +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|still) +)*(?:found|[\\p{L}]+ed|remains?|exists?)\\b",
           "(?<![\\p{L}\\p{N}_] )\\b(?:the +)?(?:(?:critical|security|authentication|code|blocking|high|medium|low|major|minor|unresolved|open|new) +)+" + noun + " +(?:(?:is|are|was|were|has|have|had|be|been|being|get|gets|got|gotten|getting|still) +)*(?:(?:is|are|was|were) +[\\p{L}]+|found|[\\p{L}]+ed|[\\p{L}]+s|remains?|exists?)\\b",
         "\\b(?:a|an) +(?:[\\p{L}-]+ +)*?" + noun + " +(?:(?:can|could|may|might|will|would|must|should) +[\\p{L}-]+|[\\p{L}]+s)\\b",
@@ -972,9 +983,33 @@ Codex can also answer questions or update the PR. Try commenting "@codex address
 
 function withoutCodexHelpFooter(text) {
   const body = String(text);
-  const footer = body.match(/\s*<details>\s*<summary>ℹ️ About Codex in GitHub<\/summary>\s*<br\/>\s*((?:(?!<\/?details\b)[\s\S])*)<\/details>\s*$/);
+  const footer = body.match(/\s*<details>\s*<summary>ℹ️ About Codex in GitHub<\/summary>\s*(?:<br\s*\/>)?\s*((?:(?!<\/?details\b)[\s\S])*)<\/details>\s*$/);
   if (!footer || !codexHelpFooters.includes(footer[1].replace(/\s+/g, " ").trim())) return body;
   return body.slice(0, footer.index);
+}
+
+// Completion clocks require a closed native presentation. Unknown prose is
+// observed evidence; English/Markdown interpretation cannot backdate findings.
+function hasCanonicalStructuredPresentation(body, state) {
+  if (!state) return false;
+  const raw = String(body);
+  if (raw.split(/\r?\n/).some(line => /^(?: {4}| *\t|[^\S \t\r\n])/.test(line))) return false;
+  const envelope = raw.trim().match(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 (.+?) -->\s*## Codex Review Summary(?:\s|$)/s);
+  if (!envelope) return false;
+  const visible = withoutCodexHelpFooter(raw.trim().slice(envelope[0].length)).trim();
+  const blocks = visible.split(/\r?\n[ \t]*\r?\n/);
+  if (blocks.length !== 2 || blocks[0] !== "This comment shows the latest Codex review activity on this pull request.") return false;
+  const lines = blocks[1].split(/\r?\n/).map(line => line.trim());
+  if (lines.shift() !== "| Review | Status | Commit | Review trigger |" ||
+      !/^\|\s*-+\s*\|\s*-+\s*\|\s*-+\s*\|\s*-+\s*\|$/.test(lines.shift() || "")) return false;
+  const expected = [["code_review", "Code Review"], ["security_review", "Security Review"]].filter(([key]) => state[key].status !== null);
+  if (lines.length !== expected.length) return false;
+  return expected.every(([key, label], index) => {
+    const row = lines[index].match(/^\| (?:📝|🛡️|🔒) \*\*(Code Review|Security Review)\*\* \| (✅ \*\*Completed\*\*|🔄 \*\*Running\*\*(?: since)?)(?: <relative-time datetime="([^"<>]+)">([^<>]+)<\/relative-time>)? \| `([a-f0-9]{7,40})` \| (?:Manual request|Automatic review|PR opened) \|$/);
+    const value = state[key];
+    return row && row[1] === label && (value.status === "completed" ? row[2] === "✅ **Completed**" : value.status === "running" && row[2].startsWith("🔄 **Running**")) &&
+      value.commit_sha?.startsWith(row[5]) && row[3] && row[3] === row[4] && Number.isFinite(Date.parse(row[3]));
+  });
 }
 
 function isPositiveSummaryRendering(text, headSha, securityActive) {
@@ -985,7 +1020,7 @@ function isPositiveSummaryRendering(text, headSha, securityActive) {
       lines.shift() !== "| --- | --- | --- | --- |") return false;
   const seen = new Set();
   for (const line of lines) {
-    const row = line.match(/^\| (?:📝|🛡️) \*\*(Code Review|Security Review)\*\* \| ✅ \*\*Completed\*\*(?: <relative-time datetime="([^"<>]+)">([^<>]+)<\/relative-time>)? \| `([a-f0-9]{7,40})` \| (?:Manual request|Automatic review) \|$/);
+    const row = line.match(/^\| (?:📝|🛡️|🔒) \*\*(Code Review|Security Review)\*\* \| ✅ \*\*Completed\*\*(?: <relative-time datetime="([^"<>]+)">([^<>]+)<\/relative-time>)? \| `([a-f0-9]{7,40})` \| (?:Manual request|Automatic review|PR opened) \|$/);
     if (!row || seen.has(row[1]) || !headSha.startsWith(row[4]) ||
         (row[2] && (row[2] !== row[3] || !Number.isFinite(Date.parse(row[2]))))) return false;
     seen.add(row[1]);
@@ -1008,6 +1043,7 @@ function withoutMarkdownFences(body) {
 }
 
 function parseStructuredCodexSummary(body, headSha, stateOnly = false, negativeOnly = false) {
+  const originalBody = body;
   // Four-space/tab protocol openers are Markdown examples, never authority.
   const rawEnvelope = body.replace(/[^\S\r\n \t]/g, "");
   const leadingMarkers = rawEnvelope.match(/^\uFEFF?(?:[ \t]*\r?\n)*([ \t]*)<!--\s*codex-(?:pull-request-review-summary|review-state:)/);
@@ -1030,7 +1066,7 @@ function parseStructuredCodexSummary(body, headSha, stateOnly = false, negativeO
     if (!keysAre(value, ["commit_sha", "has_any_findings", "has_unresolved_findings", "status"])) return null;
     if (name === "security_review" && Object.values(value).every((field) => field === null)) continue;
     const knownFindings = typeof value.has_any_findings === "boolean" && typeof value.has_unresolved_findings === "boolean";
-    const omittedCodeFindings = false;
+    const omittedCodeFindings = name === "code_review" && value.has_any_findings === null && value.has_unresolved_findings === null;
     if (typeof value.commit_sha !== "string" || !/^[a-f0-9]{40}$/.test(value.commit_sha) || typeof value.status !== "string" ||
         (!knownFindings && !omittedCodeFindings) || (!value.has_any_findings && value.has_unresolved_findings)) return null;
   }
@@ -1054,7 +1090,7 @@ function parseStructuredCodexSummary(body, headSha, stateOnly = false, negativeO
   }
   const securityCompleted = security.status === null || (security.commit_sha === headSha && security.status === "completed");
   const completed = code.status === "completed" && securityCompleted;
-  const positiveRendering = completed && isPositiveSummaryRendering(visibleVerdict, headSha, security.status !== null);
+  const positiveRendering = completed && hasCanonicalStructuredPresentation(originalBody, state) && isPositiveSummaryRendering(visibleVerdict, headSha, security.status !== null);
   if (positiveRendering && code.has_any_findings === null && code.has_unresolved_findings === null) {
     // The native backend omits code findings flags when it publishes a separate
     // no-findings receipt. Null is never a positive verdict on its own.
@@ -1257,14 +1293,14 @@ export function isAcceptableCodexSummaryComment(comment, headSha, requestedAt, s
   if (receipt.startsWith("<!-- codex-review-receipt:v1 -->")) {
     receipt = receipt.slice("<!-- codex-review-receipt:v1 -->".length).trim();
   }
+  receipt = receipt.replace(/\n\s*\[View task →\]\(https:\/\/chatgpt\.com\/s\/cd_[a-f0-9]{32}\)\s*$/, "").trim();
   receipt = withoutCodexHelpFooter(receipt).trim();
   const match = receipt.match(
     /^Codex Review: Didn't find any major issues\.([^\r\n]*)\r?\n\s*\r?\n\*\*Reviewed commit:\*\* +`([a-f0-9]{10}|[a-f0-9]{40})`$/i
   );
   if (!match) return false;
   const suffix = match[1].trim();
-  if (!CODEX_RECEIPT_ENCOURAGEMENTS.has(suffix) &&
-      !/^(?:\s|:[a-z0-9_+-]+:|\p{Extended_Pictographic}|\p{Emoji_Modifier}|\uFE0F|\u200D)*$/u.test(suffix)) return false;
+  if (!CODEX_RECEIPT_ENCOURAGEMENTS.has(suffix)) return false;
   return match[2].toLowerCase() === shortSha.toLowerCase() ||
     match[2].toLowerCase() === headSha.toLowerCase();
 }
@@ -1289,8 +1325,8 @@ function codeReviewCompletionTime(body, section = "Code Review", headSha = null,
   // A rendered code example cannot supply a canonical completion row.
   if ([...literalAwareVisibleText(body, true).matchAll(/<summary\b(?:[^"'<>]|"[^"]*"|'[^']*')*>([\s\S]*?)<\/summary>/gi)].some(match => renderedLabelAmbiguityText(match[1]).includes(section))) return NaN;
   body = withoutMarkdownFences(withoutAuthorityHtmlBlocks(String(body).replace(/<!--(?:>|->|[\s\S]*?(?:--!?>|$))/g, comment => comment.replace(/[^\r\n]/g, "")))).replace(/^ {1,3}(?=\|)/gm, "");
-  const label = section === "Code Review" ? "📝 \\*\\*Code Review\\*\\*" : "🛡️ \\*\\*Security Review\\*\\*";
-  const rowPattern = new RegExp('^\\| ' + label + ' \\| ✅ \\*\\*Completed\\*\\* <relative-time datetime="([^"<>]+)">([^<>]+)</relative-time> \\| `([a-f0-9]{7,40})` \\| (?:Manual request|Automatic review) \\|$', "gm");
+  const label = section === "Code Review" ? "📝 \\*\\*Code Review\\*\\*" : "(?:🛡️|🔒) \\*\\*Security Review\\*\\*";
+  const rowPattern = new RegExp('^\\| ' + label + ' \\| ✅ \\*\\*Completed\\*\\* <relative-time datetime="([^"<>]+)">([^<>]+)</relative-time> \\| `([a-f0-9]{7,40})` \\| (?:Manual request|Automatic review|PR opened) \\|$', "gm");
   const rows = [...withoutCodexHelpFooter(String(body)).matchAll(rowPattern)];
   if ((String(body).match(new RegExp("^\\| " + label + " \\|", "gm")) || []).length !== 1 || rows.length !== 1 || (headSha && !headSha.startsWith(rows[0][3])) || rows[0][1] !== rows[0][2] ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(rows[0][1])) return NaN;
@@ -1347,22 +1383,14 @@ function structuredNegativeTime(comment, headSha) {
     const value = state[section];
     if (value.commit_sha !== headSha || !(value.has_any_findings === true || value.has_unresolved_findings === true)) continue;
     const completed = codeReviewCompletionTime(comment.body, label, headSha, comment.created_at);
-    times.push(!hasVisibleStructuredConflict(negativeSectionBody(comment.body, state, section, observed, comment.created_at), section) && value.status === "completed" && Number.isFinite(completed) && completed <= observed + 999 ? Math.floor(completed / 1000) * 1000 : observed);
+    times.push(!hasVisibleStructuredConflict(comment.body, section) && value.status === "completed" && Number.isFinite(completed) && completed <= observed + 999 ? Math.floor(completed / 1000) * 1000 : observed);
   }
   return times.length ? Math.max(...times) : observed;
 }
 
 function hasVisibleStructuredConflict(body, section = null) {
-  if (/^(?: {4,}| *\t[ \t]*)<!--/m.test(String(body))) return true;
-  let visible = withoutCodexHelpFooter(String(body).trim().replace(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 .+? -->\s*## Codex Review Summary/s, ""));
-  visible = visible.replace(/^ {1,3}(?=\|)/gm, "");
-  if (section) {
-    const other = section === "code_review" ? "| 🛡️ **Security Review** |" : "| 📝 **Code Review** |";
-    const rows = visible.split("\n").filter(line => line.startsWith(other));
-    if (rows.some(line => !/^\| [📝🛡️]+ \*\*(?:Code|Security) Review\*\* \| (?:✅ \*\*Completed\*\*|🔄 \*\*Running\*\*)(?: since)?(?: <relative-time datetime="[^"<>]+">[^<>]+<\/relative-time>)? \| `[a-f0-9]{7,40}` \| (?:Manual request|Automatic review) \|$/.test(line))) return true;
-  }
-  if (section) visible = visible.split("\n").filter(line => !line.startsWith(section === "code_review" ? "| 🛡️ **Security Review** |" : "| 📝 **Code Review** |")).join("\n");
-  return /<!--\s*codex-/i.test(visible) || containsBlockingCodexSeverity(body) || containsNegativeReviewState(visible) || /Codex Review:/i.test(visibleReviewText(visible)) || hasPositiveFindingStatement(visibleReviewText(visible));
+  const state = parseStructuredCodexSummary(String(body || ""), null, true);
+  return !hasCanonicalStructuredPresentation(body, state);
 }
 
 function isSupersededTypedFinding(comment, snapshots, headSha) {
@@ -1374,13 +1402,13 @@ function isSupersededTypedFinding(comment, snapshots, headSha) {
   if (!hasValidFindingCompanions(state, body, observed, headSha, null, comment.created_at)) return false;
   const findings = [["code_review", "Code Review"], ["security_review", "Security Review"]].filter(([section]) => state[section].commit_sha === headSha && (state[section].has_any_findings === true || state[section].has_unresolved_findings === true));
   return findings.length > 0 && findings.every(([section, label]) => {
-    const scoped = negativeSectionBody(body, state, section, observed, comment.created_at);
+    const scoped = body;
     const ownRow = negativeSectionRow(body, state[section], label, observed, comment.created_at);
     const hardBody = ownRow ? scoped.replace(ownRow, "") : scoped;
     const visible = withoutCodexHelpFooter(hardBody);
     if (containsBlockingCodexSeverity(hardBody) || containsNegativeReviewState(visible) || /Codex Review:/i.test(visibleReviewText(visible))) return false;
     const completed = codeReviewCompletionTime(body, label, headSha, comment.created_at);
-    const fence = Math.floor((!hasVisibleStructuredConflict(scoped, section) && state[section].status === "completed" && Number.isFinite(completed) && completed <= observed + 999 ? completed : observed) / 1000);
+    const fence = Math.floor((!hasVisibleStructuredConflict(body, section) && state[section].status === "completed" && Number.isFinite(completed) && completed <= observed + 999 ? completed : observed) / 1000);
     return snapshots.some(({ comment: clean }) => {
       if (clean === comment || hasVisibleStructuredConflict(clean.body, section)) return false;
       const cleanState = parseStructuredCodexSummary(String(clean.body || ""), headSha, true);
@@ -1405,7 +1433,7 @@ function hasUnclearedStructuredFindings(snapshots, headSha) {
     if (!findings.length) continue;
     const fence = Math.max(...findings.map(({ comment, state, time }) => {
       const completed = codeReviewCompletionTime(comment.body, label, headSha, comment.created_at);
-      return Math.floor((state[section].status === "completed" && Number.isFinite(completed) && completed <= time + 999 ? completed : time) / 1000);
+      return Math.floor((!hasVisibleStructuredConflict(comment.body, section) && state[section].status === "completed" && Number.isFinite(completed) && completed <= time + 999 ? completed : time) / 1000);
     }));
     const cleared = states.some(({ comment, state, result, time }) => {
       if (!state) return false;
@@ -1457,14 +1485,26 @@ export function evaluateCodexCommentEvidence(comments, headSha, requestMarker, n
     const time = Date.parse((strictReceipt ? comment.created_at : comment.updated_at || comment.created_at) || "");
     if (!Number.isFinite(time)) return "pending";
     let result = "pending";
-    if (structured) result = parseStructuredCodexSummary(String(comment.body || ""), headSha)?.result || "pending";
+    const lifecycle = structured ? parseStructuredCodexSummary(String(comment.body || ""), headSha) : null;
+    if (structured) result = lifecycle?.result || "pending";
     else if (strictReceipt) result = "pass";
     else if (containsBlockingCodexSeverity(body)) result = "fail";
     if (structured && result === "pass" &&
         (!isStrictlyAfterCodexReviewRequest(new Date(time).toISOString(), requestMarker) ||
          !hasFreshCodeReviewCompletion(body, requestMarker, comment.updated_at || comment.created_at, comment.created_at))) result = "pending";
-    candidates.push({ result, time: structured && result === "pass" ? Math.floor(codeReviewCompletionTime(body) / 1000) * 1000 : structured && result === "fail" ? structuredNegativeTime(comment, headSha) : time, snapshotTime: structured && result === "fail" ? structuredNegativeTime(comment, headSha) : time, structured, comment, strictReceipt });
+    candidates.push({ requiresCodeReceipt: lifecycle?.requiresCodeReceipt === true && hasCanonicalStructuredPresentation(body, parseStructuredCodexSummary(body, headSha, true)) && hasFreshCodeReviewCompletion(body, requestMarker, comment.updated_at || comment.created_at, comment.created_at), result, time: structured && result === "pass" ? Math.floor(codeReviewCompletionTime(body) / 1000) * 1000 : structured && result === "fail" ? structuredNegativeTime(comment, headSha) : time, snapshotTime: structured && result === "fail" ? structuredNegativeTime(comment, headSha) : time, structured, comment, strictReceipt });
   }
+  // A completed null-flags lifecycle supplies no verdict. It may accompany an
+  // independently fresh strict code receipt only while security is inactive.
+  candidates = candidates.filter(entry => {
+    if (!entry.requiresCodeReceipt) return true;
+    const value = parseStructuredCodexSummary(entry.comment.body, headSha, true);
+    const created = Date.parse(entry.comment.created_at || "");
+    const completed = codeReviewCompletionTime(entry.comment.body, "Code Review", headSha, entry.comment.created_at);
+    return value.security_review.status !== null || !candidates.some(receipt => receipt.strictReceipt && receipt.result === "pass" &&
+      (!receipt.comment.updated_at || receipt.comment.updated_at === receipt.comment.created_at) &&
+      Date.parse(receipt.comment.created_at || "") >= created && Date.parse(receipt.comment.created_at || "") <= completed);
+  });
   if (hasUnclearedStructuredFindings(candidates.filter((entry) => entry.structured), headSha)) return "pending";
   const history = candidates.filter(entry => entry.structured);
   const retired = history.filter(entry => isSupersededTypedFinding(entry.comment, history, headSha));
