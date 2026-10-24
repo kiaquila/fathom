@@ -702,6 +702,23 @@ test("fractional observations cannot lend a later bucket to negative history", (
     const comments = [negative, intermediate, positive];
     assert.equal(evaluateCodexCommentEvidence(comments, headSha, request) === "pass", allowed, `${section} ${icon} ${fraction}`);
     assert.equal(runGate({ comments: [marker, ...comments] }).status === 0, allowed, `${section} ${icon} ${fraction} actual gate`);
+    // A later other-channel update cannot hide the impossible companion in
+    // the finding that established this section's observed fence.
+    const ownLabel = section === "code_review" ? "Code Review" : "Security Review";
+    const laterBody = render(null, time(5), null, icon).split("\n").map(line => line.includes("**" + ownLabel + "**") ? line.replaceAll(time(5), time(2)) : line).join("\n");
+    const laterOtherClear = record(laterBody, time(2), time(5));
+    const crossed = [negative, intermediate, laterOtherClear, positive];
+    assert.equal(evaluateCodexCommentEvidence(crossed, headSha, request) === "pass", allowed, `${section} ${icon} ${fraction} later other-channel clear`);
+    assert.equal(runGate({ comments: [marker, ...crossed] }).status === 0, allowed, `${section} ${icon} ${fraction} crossed actual gate`);
+    if (section === "security_review") {
+      const codeOnly = record(render(null, time(5), null, icon), time(5));
+      const codeOnlyState = JSON.parse(codeOnly.body.match(/codex-review-state:v1 (.+?) -->/)[1]);
+      codeOnlyState.security_review = { commit_sha: null, status: null, has_any_findings: null, has_unresolved_findings: null };
+      codeOnly.body = codeOnly.body.replace(/codex-review-state:v1 (.+?) -->/, "codex-review-state:v1 " + JSON.stringify(codeOnlyState) + " -->").split("\n").filter(line => !line.includes("**Security Review**")).join("\n");
+      const codeOnlyCrossed = [negative, intermediate, codeOnly, positive];
+      assert.equal(evaluateCodexCommentEvidence(codeOnlyCrossed, headSha, request) === "pass", allowed, `${icon} ${fraction} exact later code-only clear`);
+      assert.equal(runGate({ comments: [marker, ...codeOnlyCrossed] }).status === 0, allowed, `${icon} ${fraction} exact code-only actual gate`);
+    }
     const fresh = record(render(null, time(5), null, icon), time(5));
     assert.equal(evaluateCodexCommentEvidence([negative, fresh, positive], headSha, request), "pass", "new canonical own completion recovers");
   }
