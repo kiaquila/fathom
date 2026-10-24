@@ -615,3 +615,88 @@ test("clean structured approval requires a contiguous canonical native table", (
   assert.equal(check(clean), "pass");
   for (const body of [clean.replace("| --- | --- | --- | --- |\n", "| --- | --- | --- | --- |\n\n"), clean.replace("| Review | Status | Commit | Review trigger |\n", "| Review | Status | Commit | Review trigger |\n\n")]) assert.notEqual(check(body), "pass");
 });
+
+
+test("positive completed companions obey the observation bucket without a creation lower bound", () => {
+  const created = "2026-10-15T12:01:00Z", observed = "2026-10-15T12:02:00Z";
+  const requestMarker = { sha: headSha, sourceCommentCreatedAt: requestedAt, requestedAt };
+  const request = { id: 21, user: { login: "github-actions[bot]" }, created_at: "2026-10-15T12:00:00Z",
+    body: createCodexReviewRequestMarkerBody({ headSha, requestId: "20-head", sourceCommentId: "20", sourceCommentCreatedAt: "2026-10-15T12:00:00Z", requestedAt: "2026-10-15T12:00:00Z" }) };
+  const cases = [
+    { name: "canonical", at: created, pass: true },
+    { name: "invalid matching clock", at: "invalid", pass: false },
+    { name: "invalid clock with blocker", at: "invalid", visible: "P1: Do not merge", pass: false },
+    { name: "mismatched display", at: created, visible: "P1: Do not merge", pass: false },
+    { name: "future companion", at: "2026-10-15T12:03:00Z", pass: false },
+    { name: "last millisecond in observed bucket", at: "2026-10-15T12:02:00.999Z", pass: true },
+    { name: "next whole second", at: "2026-10-15T12:02:01Z", pass: false },
+    { name: "fractional observation never lends next bucket", at: "2026-10-15T12:02:01.100Z", observed: "2026-10-15T12:02:00.500Z", pass: false },
+    { name: "fractional observation preserves own bucket", at: "2026-10-15T12:02:00.999Z", observed: "2026-10-15T12:02:00.500Z", pass: true },
+    { name: "carried precreation completion", at: "2026-10-15T11:30:00Z", pass: true },
+    { name: "typed security finding", at: created, findings: true, pass: false }
+  ];
+  for (const icon of ["🛡️", "🔒"]) for (const row of cases) {
+    const active = { code_review: { commit_sha: headSha, status: "completed", has_any_findings: false, has_unresolved_findings: false },
+      security_review: { commit_sha: headSha, status: "completed", has_any_findings: row.findings === true, has_unresolved_findings: row.findings === true } };
+    const body = `<!-- codex-pull-request-review-summary -->
+<!-- codex-review-state:v1 ${JSON.stringify(active)} -->
+
+## Codex Review Summary
+
+This comment shows the latest Codex review activity on this pull request.
+
+| Review | Status | Commit | Review trigger |
+| --- | --- | --- | --- |
+| 📝 **Code Review** | ✅ **Completed** <relative-time datetime="${created}">${created}</relative-time> | \`${headSha.slice(0, 7)}\` | Manual request |
+| ${icon} **Security Review** | ✅ **Completed** <relative-time datetime="${row.at}">${row.visible || row.at}</relative-time> | \`${headSha.slice(0, 7)}\` | Manual request |`;
+    const native = { id: 90, user: codexUser, body, created_at: created, updated_at: row.observed || observed };
+    assert.equal(evaluateCodexCommentEvidence([native], headSha, requestMarker) === "pass", row.pass, `${icon}: ${row.name}`);
+    const invoked = runGate({ comments: [request, native] });
+    assert.equal(invoked.status === 0, row.pass, `${icon}: ${row.name}: ${invoked.stderr}`);
+  }
+});
+
+
+test("unknown code lifecycle retires only after its own observed channel clears", () => {
+  const raw = JSON.parse(readFileSync(new URL("./fixtures/channel-lifecycle-sequence.json", import.meta.url), "utf8"));
+  const offset = Date.parse(requestedAt) - Date.parse(raw.requestMarker.requestedAt);
+  const mapped = JSON.parse(JSON.stringify(raw).replaceAll(raw.sha, headSha).replaceAll(raw.sha.slice(0, 10), headSha.slice(0, 10)).replaceAll(raw.sha.slice(0, 7), headSha.slice(0, 7)).replace(/2026-10-15T\d{2}:\d{2}:\d{2}Z/g, value => new Date(Date.parse(value) + offset).toISOString()));
+  const request = { agent: "codex", sha: headSha, requestedAt, sourceCommentCreatedAt: requestedAt };
+  const marker = { id: 21, user: { login: "github-actions[bot]" }, created_at: requestedAt,
+    body: createCodexReviewRequestMarkerBody({ headSha, requestId: "20-head", sourceCommentId: "20", sourceCommentCreatedAt: requestedAt, requestedAt }) };
+  for (const icon of ["🔒", "🛡️"]) for (const row of mapped.cases) {
+    const comments = row.comments.map(comment => ({ ...comment, body: comment.body.replaceAll("🔒", icon) }));
+    assert.equal(evaluateCodexCommentEvidence(comments, headSha, request) === "pass", row.expected, `${icon}: ${row.name}`);
+    const invoked = runGate({ comments: [marker, ...comments] });
+    assert.equal(invoked.status === 0, row.expected, `${icon}: ${row.name}: ${invoked.stderr}`);
+  }
+});
+
+
+test("fractional observations cannot lend a later bucket to negative history", () => {
+  const requestTime = requestedAt;
+  const time = minutes => new Date(Date.parse(requestTime) + minutes * 60000).toISOString();
+  const render = (section, own, companion, icon) => {
+    const value = Object.fromEntries(["code_review", "security_review"].map(key => [key, { commit_sha: headSha, status: "completed", has_any_findings: key === section, has_unresolved_findings: key === section }]));
+    const rows = [["code_review", "📝", "Code Review"], ["security_review", icon, "Security Review"]].map(([key, emoji, label]) => {
+      const at = !section || key === section ? own : companion;
+      return `| ${emoji} **${label}** | ✅ **Completed** <relative-time datetime="${at}">${at}</relative-time> | \`${headSha.slice(0, 7)}\` | Manual request |`;
+    });
+    return `<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 ${JSON.stringify(value)} -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n${rows.join("\n")}`;
+  };
+  const record = (body, created, updated = created) => ({ id: Math.round(Date.parse(created) / 1000), user: { login: "chatgpt-codex-connector[bot]" }, body, created_at: created, updated_at: updated });
+  const request = { agent: "codex", sha: headSha, requestedAt: requestTime, sourceCommentCreatedAt: requestTime };
+  const marker = { id: 21, user: { login: "github-actions[bot]" }, created_at: requestTime, body: createCodexReviewRequestMarkerBody({ headSha, requestId: "20-head", sourceCommentId: "20", sourceCommentCreatedAt: requestTime, requestedAt: requestTime }) };
+  const positive = record(receipt, time(6));
+  for (const section of ["code_review", "security_review"]) for (const icon of ["🔒", "🛡️"]) for (const [fraction, allowed] of [["00.999Z", true], ["01.100Z", false]]) {
+    const observed = time(4).replace("00.000Z", "00.999Z");
+    const companion = time(4).replace("00.000Z", fraction);
+    const negative = record(render(section, time(2), companion, icon), time(2), observed);
+    const intermediate = record(render(null, time(3), null, icon), time(3));
+    const comments = [negative, intermediate, positive];
+    assert.equal(evaluateCodexCommentEvidence(comments, headSha, request) === "pass", allowed, `${section} ${icon} ${fraction}`);
+    assert.equal(runGate({ comments: [marker, ...comments] }).status === 0, allowed, `${section} ${icon} ${fraction} actual gate`);
+    const fresh = record(render(null, time(5), null, icon), time(5));
+    assert.equal(evaluateCodexCommentEvidence([negative, fresh, positive], headSha, request), "pass", "new canonical own completion recovers");
+  }
+});
