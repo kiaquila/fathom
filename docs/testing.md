@@ -87,3 +87,17 @@ buckets, matching GitHub comment precision. Same-second request or pending
 evidence remains blocking; security-only edits cannot advance that order.
 
 Static clean receipts retain their publication time; unknown and negative receipt edits use their server update time and block older or equal-time machine completion.
+
+## Structured history and native presentation
+
+Trusted closed-schema current-head findings survive repeated requests. Each section requires its own strictly newer canonical clean completion to clear its history. Inactive security state, a code-only receipt, reactions, or a formal approval cannot clear security findings. Invalid own clocks fall back to observation time; own completion cannot predate comment creation or exceed the observed update bucket. Valid carried companion clocks retain their existing independent section semantics.
+
+Completion-clock authority requires the entire native presentation: the exact summary envelope, heading and introduction, the contiguous native table, exactly the expected active rows with matching typed status/SHA/clock, and only the optional exact known Codex help footer. Blank lines inside the table, duplicate or hidden rows, extra protocol, unknown HTML, code examples and arbitrary prose do not provide clocks or clearing authority. Explicit typed negatives survive such unknown presentation at observation time. A fresh canonical same-section completion can recover; English wording and Markdown rendering are never used to decide that an unknown suffix is harmless enough to backdate a finding.
+
+Static no-findings receipts require the exact verdict, one matching reviewed-commit binding and a closed catalog of observed native closings. One exact trailing service-owned View task link and the exact known help footer are supported. Uncatalogued or contradictory suffixes remain pending. The fixture corpus records 19 observed replies and their public provenance.
+
+A completed code lifecycle with both finding flags null is not approval. With security inactive, it may accompany an independent trusted strict current-request receipt only when that receipt is unedited and its original creation falls between lifecycle creation and its validated own completion. The three observed native lifecycle pairs and negative mutations are regression fixtures. Active security, mixed flags, stale/edited/out-of-window receipts, unknown presentation, deletions, withdrawal markers and unresolved threads retain their independent blocking semantics.
+
+Clean structured approval requires every active completed section clock to fit the server observation's whole-second bucket. A fractional observation never lends authority to the next second. A carried companion completion may predate this comment's creation; the current code verdict retains its own request and creation bounds.
+
+Completed code lifecycle snapshots with unknown finding flags retain their server observation fence until an immutable in-window receipt corroborates them or a canonical clean **Code Review** completion is strictly newer. A later Security Review row carrying an older code clock cannot clear that fence; each section must clear independently. Completion upper bounds use the server observation’s whole-second bucket for approval, findings, retirement and history.
