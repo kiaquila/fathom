@@ -1500,7 +1500,12 @@ function hasFreshCodeReviewCompletion(body, requestMarker, updatedAt, createdAt)
   // Every active completed section must fit this server observation bucket.
   // Companions may carry older clocks from before this comment was created.
   const state = parseStructuredCodexSummary(body, null, true);
-  const coherent = state && hasValidFindingCompanions(state, withoutCodexHelpFooter(body), Math.floor(snapshotTime / 1000) * 1000, state.code_review.commit_sha);
+  // The current native summary nests its known help footer inside the outer
+  // disclosure. Unwrap that disclosure before stripping the footer; otherwise
+  // the footer's `security review` command text looks like an unexpected active
+  // security section and keeps a clean code-only lifecycle pending.
+  const presentation = withoutCodexHelpFooter(normalizeCodexSummaryContainer(body).body);
+  const coherent = state && hasValidFindingCompanions(state, presentation, Math.floor(snapshotTime / 1000) * 1000, state.code_review.commit_sha);
   // GitHub comment timestamps have second precision; row times retain fractions.
   return coherent && Number.isFinite(time) && Number.isFinite(cutoff) && Number.isFinite(snapshotTime) &&
     Math.floor(time / 1000) > Math.floor(cutoff / 1000) && Math.floor(time / 1000) <= Math.floor(snapshotTime / 1000);

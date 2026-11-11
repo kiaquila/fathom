@@ -254,7 +254,7 @@ test("the invoked gate accepts the exact native disclosure summary without trust
 | 📝 **Code Review** | ✅ **Completed** <relative-time datetime="2026-10-15T12:01:01Z">2026-10-15T12:01:01Z</relative-time> | \`${headSha.slice(0, 7)}\` | Manual request |`;
   const disclosed = machine.replace("## Codex Review Summary",
     "<details>\n<summary><strong>Codex Review Summary</strong>: ✅ Completed</summary>") +
-    "\n\n</details>";
+    `\n\n${helpFooter}\n\n</details>`;
   const approval = { ...comment(), id: 31, created_at: "2026-10-15T12:01:00Z",
     updated_at: "2026-10-15T12:01:00Z" };
   const activity = { ...comment(disclosed), id: 32, created_at: "2026-10-15T12:00:15Z",
