@@ -988,12 +988,37 @@ function withoutCodexHelpFooter(text) {
   return body.slice(0, footer.index);
 }
 
+// Codex now wraps the mutable activity summary in one outer disclosure. Keep
+// accepting the original heading form, but unwrap only the exact native
+// container so arbitrary HTML cannot gain machine-evidence authority.
+function normalizeCodexSummaryContainer(value) {
+  const body = String(value).trim();
+  const outer = body.match(/^(<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 .+? -->)\s*<details>\s*<summary><strong>Codex Review Summary<\/strong>: (✅ Completed|🔄 Running|⚠️ Failed)<\/summary>\s*([\s\S]*)\s*<\/details>$/);
+  if (!outer) return { body, outerStatus: null };
+  return {
+    body: `${outer[1]}\n\n## Codex Review Summary\n\n${outer[3].trim()}`,
+    outerStatus: outer[2]
+  };
+}
+
+function expectedCodexSummaryStatus(state) {
+  const active = [state?.code_review, state?.security_review]
+    .filter((section) => section?.status !== null);
+  if (!active.length) return null;
+  if (active.every((section) => section.status === "completed")) return "✅ Completed";
+  if (active.some((section) => section.status === "running")) return "🔄 Running";
+  return "⚠️ Failed";
+}
+
 // Completion clocks require a closed native presentation. Unknown prose is
 // observed evidence; English/Markdown interpretation cannot backdate findings.
 function hasCanonicalStructuredPresentation(body, state) {
   if (!state) return false;
-  const raw = String(body);
-  if (raw.split(/\r?\n/).some(line => /^(?: {4}| *\t|[^\S \t\r\n])/.test(line))) return false;
+  const original = String(body);
+  if (original.split(/\r?\n/).some(line => /^(?: {4}| *\t|[^\S \t\r\n])/.test(line))) return false;
+  const normalized = normalizeCodexSummaryContainer(original);
+  if (normalized.outerStatus && normalized.outerStatus !== expectedCodexSummaryStatus(state)) return false;
+  const raw = normalized.body;
   const envelope = raw.trim().match(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 (.+?) -->\s*## Codex Review Summary(?:\s|$)/s);
   if (!envelope) return false;
   const visible = withoutCodexHelpFooter(raw.trim().slice(envelope[0].length)).trim();
@@ -1052,6 +1077,8 @@ function parseStructuredCodexSummary(body, headSha, stateOnly = false, negativeO
   if ([leadingMarkers, leadingState, leadingHeading].some(match => match && (/\t/.test(match[1]) || match[1].replace(/\uFEFF/g, "").length >= 4))) return null;
   body = body.trim();
   const protocolBody = withoutMarkdownFences(body).replace(/^(?: {4,}| *\t[ \t]*)<!--[^\n]*-->[ \t]*$/gm, "");
+  const normalized = normalizeCodexSummaryContainer(body);
+  body = normalized.body;
   const envelope = body.match(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 (.+?) -->\s*## Codex Review Summary(?:\s|$)/s);
   if (!envelope || (!negativeOnly && ((protocolBody.match(/<!--\s*codex-pull-request-review-summary\b/g) || []).length !== 1 ||
       (protocolBody.match(/<!--\s*codex-review-state:/g) || []).length !== 1 || /<!--\s*codex-review-receipt:/.test(body)))) return null;
@@ -1080,6 +1107,7 @@ function parseStructuredCodexSummary(body, headSha, stateOnly = false, negativeO
   const code = state.code_review;
   if (stateOnly) return state;
   if (code.commit_sha !== headSha) return null;
+  if (normalized.outerStatus === "⚠️ Failed") return { result: "fail", explicitSha: true };
   // Conflicting visible severity or a second verdict cannot be hidden by JSON.
   const visibleVerdict = withoutCodexHelpFooter(body.slice(envelope[0].length));
   if (containsBlockingCodexSeverity(body) || containsNegativeReviewState(visibleVerdict) ||
@@ -1319,6 +1347,7 @@ export function hasUnresolvedCodexFindings(threads = []) {
 // The shared summary can be edited by security activity. Its server update
 // time alone cannot prove that code review ran for this particular request.
 function codeReviewCompletionTime(body, section = "Code Review", headSha = null, createdAt = null) {
+  body = normalizeCodexSummaryContainer(body).body;
   // Rendered-equivalent duplicate labels are ambiguity, never new clock authority.
   const rawRows = String(body).split(/\r?\n/).filter(line => new RegExp("^ {0,3}\\|[^|]*\\b" + section + "\\b", "i").test(renderedLabelAmbiguityText(line)));
   if (rawRows.length !== 1 || [...rawRows[0].matchAll(/<!--(?:>|->|[\s\S]*?(?:--!?>|$))/g)].some(comment => [...comment[0].matchAll(/\|/g)].some(pipe => markdownLinkOpenerAllowed(comment[0], pipe.index)))) return NaN;
@@ -1395,7 +1424,7 @@ function hasVisibleStructuredConflict(body, section = null) {
 }
 
 function isSupersededTypedFinding(comment, snapshots, headSha) {
-  const body = String(comment.body || "").trim();
+  const body = normalizeCodexSummaryContainer(comment.body || "").body;
   const state = parseStructuredCodexSummary(String(comment.body || ""), headSha, true);
   if (!state) return false;
   const visible = withoutCodexHelpFooter(body.replace(/^<!-- codex-pull-request-review-summary -->\s*<!-- codex-review-state:v1 .+? -->\s*## Codex Review Summary/s, ""));
