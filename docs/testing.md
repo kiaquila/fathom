@@ -34,6 +34,11 @@ Formal reviews retain their current-head and P0–P2 policy. A new request canno
 clear a blocking review, and unresolved Codex review threads block regardless of
 severity or the commit on which they were created.
 
+The mutable activity summary is accepted only in the two observed native
+containers: the legacy `## Codex Review Summary` heading or the exact outer
+`<details>` disclosure whose status matches the machine state. Unknown wrapper
+markup, conflicting statuses, and trailing prose fail closed.
+
 The rerun workflow and runtime router both accept receipt and
 `codex-pull-request-review-summary` updates on `created` and `edited` events.
 A complete strictly validated machine snapshot is also review evidence; a heading,

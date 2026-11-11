@@ -243,6 +243,38 @@ test("the invoked gate passes receipts but never treats mutable activity summari
   }
 });
 
+test("the invoked gate accepts the exact native disclosure summary without trusting variants", () => {
+  const request = { id: 21, user: { login: "github-actions[bot]" }, body:
+    createCodexReviewRequestMarkerBody({ headSha, requestId: "20-head", sourceCommentId: "20",
+      sourceCommentCreatedAt: requestedAt, requestedAt }), created_at: requestedAt };
+  const machine = summary + `\n\nThis comment shows the latest Codex review activity on this pull request.
+
+| Review | Status | Commit | Review trigger |
+| --- | --- | --- | --- |
+| 📝 **Code Review** | ✅ **Completed** <relative-time datetime="2026-10-15T12:01:01Z">2026-10-15T12:01:01Z</relative-time> | \`${headSha.slice(0, 7)}\` | Manual request |`;
+  const disclosed = machine.replace("## Codex Review Summary",
+    "<details>\n<summary><strong>Codex Review Summary</strong>: ✅ Completed</summary>") +
+    "\n\n</details>";
+  const approval = { ...comment(), id: 31, created_at: "2026-10-15T12:01:00Z",
+    updated_at: "2026-10-15T12:01:00Z" };
+  const activity = { ...comment(disclosed), id: 32, created_at: "2026-10-15T12:00:15Z",
+    updated_at: "2026-10-15T12:01:02Z" };
+
+  const passed = runGate({ comments: [request, approval, activity] });
+  assert.equal(passed.status, 0, passed.stderr);
+
+  const variants = [
+    disclosed.replace(": ✅ Completed</summary>", ": 🔄 Running</summary>"),
+    disclosed.replace(": ✅ Completed</summary>", ": ✅ Completed P1</summary>"),
+    disclosed + "\nP1 blocker",
+    disclosed.replace('"has_any_findings":false', '"has_any_findings":true')
+  ];
+  for (const body of variants) {
+    const result = runGate({ comments: [request, approval, { ...activity, body }] });
+    assert.equal(result.status, 1, body + "\n" + result.stdout + result.stderr);
+  }
+});
+
 test("new requests cannot clear earlier blocking reviews or unresolved findings on any page", () => {
   const blockedReview = runGate({ reviews: [{ id: 1, commit_id: headSha, state: "CHANGES_REQUESTED",
     submitted_at: "2026-10-15T11:59:00Z", user: codexUser }] });
