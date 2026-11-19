@@ -128,9 +128,8 @@
     transition: color 2s ease;
   }
   .tag strong { color: var(--ink); font-weight: 600; transition: color 2s ease; }
-  /* The brand dot is decorative, so the wordmark needs a real separator in the
-     accessible name — without it the mark is announced as one word. The same
-     class hides the mood status region. */
+  /* The wordmark is drawn as an SVG, so its accessible name lives in a
+     visually hidden span. The same class hides the mood status region. */
   .visually-hidden {
     position: absolute;
     width: 1px;
@@ -141,17 +140,21 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  /* The dot sits nearer the KS than the DESIGN in a strict 1:2 proportion —
-     0.15em after the S, 0.30em before the D. The tag's 0.22em letter-spacing
-     already pads the left side, so the left margin only trims it back. Size
-     and margins are Ember's (ember.ks-design.art); the circle itself is an
-     SVG in the markup, so the gradient is painted as a filled path rather
-     than a rounded clip. */
-  .dot {
+  /* The ks design.art wordmark as it ships on ks-design.art (client
+     decision, 2026-11-19), outlined from the site's own faces so the page
+     still loads no webfont: KS DESIGN in Manrope 700 at 0.78rem with 0.14em
+     tracking, the 0.4em cornflower dot on the baseline, and "art" in Caveat
+     600 at 1.95em, turned -5deg. The viewBox is 1000 units per em of that
+     size with the baseline at y = 0; the box spans the Manrope line (ascent
+     1.066em, descent 0.3em) and the script overflows it, as on the site. */
+  .brand-mark {
     display: inline-block;
-    width: 0.42em;
-    height: 0.42em;
-    margin: 0 0.3em 0 -0.07em;
+    width: 9.152em;
+    height: 1.366em;
+    font-size: 0.78rem;
+    vertical-align: -0.3em;
+    overflow: visible;
+    fill: currentColor;
   }
   .bottom {
     bottom: 0;
@@ -211,6 +214,8 @@
   @media (max-width: 560px) {
     .top { padding: 16px 18px; padding-top: calc(16px + env(safe-area-inset-top, 0px)); padding-left: calc(18px + env(safe-area-inset-left, 0px)); padding-right: calc(18px + env(safe-area-inset-right, 0px)); }
     .tag { font-size: 10px; letter-spacing: 0.16em; }
+    /* The mark shrinks with the tag so both labels keep one line at 320px. */
+    .brand-mark { font-size: 10px; }
     .bottom { gap: 12px; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
     .ctl { min-width: 0; padding: 0 12px; height: 34px; }
   }
@@ -224,14 +229,9 @@
 <div id="tint" aria-hidden="true"></div>
 
 <header class="chrome top">
-  <!-- Ember's lab chrome as it ships on ember.ks-design.art (client decision,
-       2026-09-04): the letters in the system face at the tag's 11px, weight
-       600, 0.22em tracking; the dot 0.42em on the baseline, 0.15em after the
-       S and 0.30em before the D. Only the dot's colour is the ks·design
-       cornflower pair, drawn here as an SVG circle — the same 135° corner-to-
-       corner gradient as Ember's CSS dot, painted as a filled path instead of
-       a rounded clip. -->
-  <span class="tag"><strong>ks<svg class="dot" aria-hidden="true" viewBox="0 0 100 100"><defs><linearGradient id="brand-dot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--brand-dot-a)"/><stop offset="1" style="stop-color:var(--brand-dot-b)"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#brand-dot)"/></svg><span class="visually-hidden"> </span>design</strong> · lab</span>
+  <!-- The ks design.art wordmark from ks-design.art, followed by the lab
+       label (client decision, 2026-11-19). -->
+  <span class="tag"><strong><span class="visually-hidden">ks design.art</span><svg class="brand-mark" aria-hidden="true" focusable="false" viewBox="0 -1066 9152 1366"><defs><linearGradient id="brand-dot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--brand-dot-a)"/><stop offset="1" style="stop-color:var(--brand-dot-b)"/></linearGradient></defs><path d="M70 0V-720H190V-386L478 -720H626L316 -367L647 0H494L190 -336V0Z M1094 15Q1014 15 951 -12Q888 -40 847 -91Q806 -142 796 -213L920 -232Q936 -168 986 -133Q1036 -98 1101 -98Q1140 -98 1174 -110Q1208 -122 1229 -145Q1250 -168 1250 -202Q1250 -216 1245 -229Q1240 -242 1230 -252Q1220 -262 1205 -270Q1190 -278 1170 -284L984 -340Q960 -346 932 -358Q904 -370 880 -391Q855 -412 839 -444Q824 -476 824 -524Q824 -593 859 -640Q894 -688 954 -711Q1014 -734 1086 -734Q1160 -734 1218 -709Q1276 -684 1316 -637Q1354 -590 1370 -524L1241 -501Q1233 -539 1210 -566Q1188 -592 1155 -606Q1122 -620 1085 -622Q1049 -622 1018 -611Q988 -600 969 -578Q950 -558 950 -530Q950 -503 966 -486Q982 -470 1006 -460Q1030 -450 1054 -444L1183 -408Q1210 -400 1242 -388Q1276 -376 1306 -355Q1336 -334 1356 -298Q1376 -264 1376 -210Q1376 -154 1353 -111Q1330 -69 1290 -41Q1250 -13 1200 1Q1149 15 1094 15Z M1964 0V-720H2194Q2203 -720 2230 -720Q2256 -719 2282 -716Q2367 -705 2426 -655Q2486 -606 2516 -528Q2546 -452 2546 -360Q2546 -268 2516 -192Q2486 -114 2426 -65Q2367 -15 2282 -4Q2257 -1 2230 0Q2203 0 2194 0ZM2087 -114H2194Q2209 -114 2232 -114Q2256 -116 2274 -119Q2324 -128 2356 -164Q2388 -200 2404 -252Q2419 -304 2419 -360Q2419 -418 2404 -470Q2388 -522 2356 -556Q2324 -592 2274 -601Q2256 -605 2232 -606Q2209 -606 2194 -606H2087Z M2805 0V-720H3270V-607H2926V-430H3210V-316H2926V-113H3270V0Z M3790 15Q3711 15 3648 -12Q3584 -40 3544 -91Q3503 -142 3492 -213L3617 -232Q3633 -168 3683 -133Q3732 -98 3798 -98Q3836 -98 3870 -110Q3904 -122 3925 -145Q3946 -168 3946 -202Q3946 -216 3942 -229Q3936 -242 3927 -252Q3917 -262 3902 -270Q3886 -278 3866 -284L3680 -340Q3656 -346 3629 -358Q3601 -370 3576 -391Q3552 -412 3536 -444Q3520 -476 3520 -524Q3520 -593 3555 -640Q3590 -688 3650 -711Q3710 -734 3783 -734Q3857 -734 3915 -709Q3973 -684 4012 -637Q4051 -590 4067 -524L3938 -501Q3930 -539 3907 -566Q3884 -592 3851 -606Q3818 -620 3782 -622Q3746 -622 3715 -611Q3684 -600 3665 -578Q3646 -558 3646 -530Q3646 -503 3662 -486Q3678 -470 3702 -460Q3726 -450 3750 -444L3880 -408Q3906 -400 3939 -388Q3972 -376 4002 -355Q4033 -334 4053 -298Q4072 -264 4072 -210Q4072 -154 4049 -111Q4026 -69 3986 -41Q3947 -13 3896 1Q3846 15 3790 15Z M4331 0V-720H4452V0Z M5038 15Q4968 15 4907 -10Q4846 -34 4800 -82Q4754 -130 4728 -200Q4702 -270 4702 -360Q4702 -478 4746 -562Q4790 -646 4866 -690Q4942 -735 5038 -735Q5172 -735 5249 -673Q5327 -612 5354 -500L5232 -480Q5211 -544 5164 -583Q5118 -621 5046 -621Q4974 -622 4926 -590Q4878 -557 4853 -498Q4829 -439 4829 -360Q4829 -281 4853 -223Q4877 -164 4925 -132Q4974 -100 5046 -98Q5100 -98 5142 -118Q5182 -138 5208 -180Q5234 -221 5244 -283H5116V-378H5372Q5372 -370 5373 -354Q5374 -338 5374 -336Q5374 -234 5333 -154Q5293 -75 5218 -30Q5143 15 5038 15Z M5614 0V-720H5736L6070 -212V-720H6192V0H6070L5736 -508V0Z"/><circle cx="6622" cy="-200" r="200" fill="url(#brand-dot)"/><path transform="translate(6940.5 -643.5) rotate(-5) translate(0 39)" d="M230 593Q222 577 201 564Q179 550 179 542Q179 534 174 521Q168 507 160 499Q150 488 165 443Q179 398 209 333Q238 269 275 201Q291 185 306 160Q322 135 330 127Q330 119 335 112Q341 105 349 105L361 80Q363 72 382 49Q402 25 431 -3Q460 -31 489 -57Q519 -82 538 -94Q579 -121 623 -122Q667 -123 698 -98Q704 -92 722 -75Q741 -58 764 -39Q788 -20 807 -2L879 62L846 160Q821 238 834 296Q846 355 870 398Q879 419 901 434Q922 448 950 452Q965 454 979 464Q993 474 993 495Q993 532 979 550Q965 567 946 571Q881 579 824 552Q766 525 720 435Q712 423 699 391Q686 359 684 349Q677 359 661 377Q645 396 634 408Q495 548 396 592Q296 636 230 593ZM326 448Q335 454 369 439Q402 423 450 384Q517 328 567 280Q618 232 659 174L702 103Q682 58 665 44Q647 29 632 29Q606 29 566 66Q526 103 479 171Q431 238 376 330Q353 370 339 410Q326 448 326 448Z M1096 585Q1078 571 1063 553Q1047 534 1053 495Q1059 441 1069 399Q1078 357 1092 302Q1096 279 1112 222Q1129 166 1154 99Q1180 33 1205 -26Q1230 -86 1250 -115Q1269 -133 1306 -132Q1342 -131 1357 -115Q1379 -98 1368 -54Q1357 -10 1312 82Q1297 115 1283 141Q1269 168 1267 180Q1264 193 1275 189Q1287 168 1318 139Q1349 111 1384 84Q1420 57 1451 35Q1482 14 1494 8Q1509 -2 1530 -9Q1550 -16 1558 -20Q1603 -41 1655 -36Q1706 -31 1718 -2Q1720 14 1731 21Q1741 29 1741 29Q1749 29 1750 35Q1751 41 1751 41Q1751 55 1727 73Q1702 92 1671 94Q1646 96 1626 103Q1607 111 1580 123Q1505 166 1443 201Q1381 236 1318 304Q1305 320 1290 336Q1275 353 1260 378Q1250 388 1240 421Q1230 454 1224 485Q1217 515 1217 521Q1217 521 1211 539Q1205 558 1191 575Q1168 606 1148 611Q1127 616 1096 585Z M2010 649Q1983 642 1960 625Q1936 608 1907 583Q1884 552 1873 526Q1862 499 1860 463Q1858 427 1858 370Q1858 347 1867 303Q1876 259 1887 211Q1897 162 1908 124Q1919 86 1921 74Q1927 49 1901 45Q1876 41 1846 42Q1815 43 1806 37Q1798 35 1798 21Q1798 8 1798 8Q1798 0 1792 -3Q1786 -6 1780 -16Q1776 -23 1788 -43Q1800 -62 1821 -66Q1839 -70 1873 -73Q1907 -76 1941 -87Q1975 -98 1995 -121Q2012 -164 2035 -214Q2057 -265 2078 -304Q2098 -343 2106 -353Q2139 -370 2167 -368Q2196 -365 2215 -333Q2225 -320 2231 -313Q2237 -306 2235 -293Q2233 -281 2218 -250Q2204 -218 2170 -156Q2161 -136 2153 -122Q2145 -107 2145 -107Q2153 -105 2168 -105Q2184 -105 2207 -107Q2229 -111 2256 -114Q2283 -117 2303 -113Q2348 -113 2369 -91Q2391 -68 2393 -29Q2397 -8 2380 4Q2363 16 2311 16Q2293 16 2259 18Q2225 20 2188 21Q2151 23 2125 26Q2098 29 2098 33Q2092 37 2080 65Q2067 94 2054 133Q2042 172 2032 205Q2018 271 2012 334Q2007 398 2011 445Q2016 491 2034 511Q2051 528 2092 513Q2133 497 2164 472Q2200 443 2224 449Q2248 456 2253 485Q2258 513 2233 550Q2209 587 2169 612Q2129 638 2086 648Q2044 659 2010 649Z"/></svg></strong> · lab</span>
   <span class="tag">study 03 — fathom</span>
 </header>
 
