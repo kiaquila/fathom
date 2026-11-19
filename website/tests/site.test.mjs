@@ -91,10 +91,10 @@ test("the page keeps essential document and canvas semantics", () => {
 
 test("the lab chrome is present and the time-of-day controls are accessible", () => {
   /* The wordmark is the ks design.art mark as it ships on ks-design.art
-     (client decision, 2026-11-19), outlined into one SVG and followed by the
-     lab label; its accessible name is real text. The dot keeps the
+     (client decision, 2026-11-19), outlined into one SVG; its accessible
+     name is real text. The dot keeps the
      ks·design cornflower pair. The study number is fixed at 03. */
-  assert.match(page, /<span class="tag"><strong><span class="visually-hidden">ks design\.art<\/span><svg class="brand-mark" aria-hidden="true" focusable="false" viewBox="0 -1066 9152 1366"><defs><linearGradient id="brand-dot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var\(--brand-dot-a\)"\/><stop offset="1" style="stop-color:var\(--brand-dot-b\)"\/><\/linearGradient><\/defs><path d="M[^"]+"\/><circle cx="6622" cy="-200" r="200" fill="url\(#brand-dot\)"\/><path transform="translate\(6940\.5 -643\.5\) rotate\(-5\) translate\(0 39\)" d="M[^"]+"\/><\/svg><\/strong> · lab<\/span>/);
+  assert.match(page, /<span class="tag"><strong><span class="visually-hidden">ks design\.art<\/span><svg class="brand-mark" aria-hidden="true" focusable="false" viewBox="0 -1066 9152 1366"><defs><linearGradient id="brand-dot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var\(--brand-dot-a\)"\/><stop offset="1" style="stop-color:var\(--brand-dot-b\)"\/><\/linearGradient><\/defs><path d="M[^"]+"\/><circle cx="6622" cy="-200" r="200" fill="url\(#brand-dot\)"\/><path transform="translate\(6940\.5 -643\.5\) rotate\(-5\) translate\(0 39\)" d="M[^"]+"\/><\/svg><\/strong><\/span>/);
   assert.match(page, /--brand-dot-a: #818cf8;\s*--brand-dot-b: #22d3ee;/);
   assert.match(page, /\.tag \{\s*font-size: 11px;\s*letter-spacing: 0\.22em;/);
   assert.match(page, /\.tag strong \{ color: var\(--ink\); font-weight: 600;/);
@@ -102,7 +102,7 @@ test("the lab chrome is present and the time-of-day controls are accessible", ()
   /* The chrome stays on the system face — no webfont is declared or fetched. */
   assert.doesNotMatch(page, /@font-face|url\([^)]*(?:woff|ttf|otf)/);
   assert.match(page, /study 03 — fathom/);
-  assert.match(page, /Designed by <a href="https:\/\/ks-design\.art" rel="author">ks-design<\/a> · Built with AI workflows/);
+  assert.match(page, /Designed by <a href="https:\/\/ks-design\.art" rel="author">ks-design\.art<\/a> · Built with AI workflows/);
   assert.match(page, /<div class="controls" role="group" aria-label="Time of day">/);
   for (const mood of ["auto", "day", "dusk", "midnight"]) {
     assert.match(page, new RegExp(`<button class="ctl" type="button" data-mood="${mood}" aria-pressed="(?:true|false)">${mood}</button>`));
