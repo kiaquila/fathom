@@ -16,7 +16,9 @@
   "performance": {
     "outputDirectory": "website/dist",
     "criticalFiles": [
-      "index.html"
+      "index.html",
+      "ks-design-art-on-light.svg",
+      "ks-design-art-on-dark.svg"
     ],
     "allowedExtensions": [
       ".css",
@@ -58,6 +60,10 @@
         },
         ".webp": {
           "rawBytes": 524288
+        },
+        ".svg": {
+          "rawBytes": 32768,
+          "gzipBytes": 16384
         }
       }
     }

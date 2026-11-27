@@ -14,8 +14,8 @@ before(async () => {
 const FISH = ["fish-01.webp", "fish-02.webp", "fish-03.webp"];
 const SOCIAL_PREVIEW = "social-preview.jpg";
 
-test("the build publishes the page, painted fish, and social preview only", async () => {
-  assert.deepEqual((await readdir(dist)).sort(), [...FISH, "index.html", SOCIAL_PREVIEW].sort());
+test("the build publishes the page, painted fish, logo variants and social preview only", async () => {
+  assert.deepEqual((await readdir(dist)).sort(), [...FISH, "index.html", SOCIAL_PREVIEW, "ks-design-art-on-light.svg", "ks-design-art-on-dark.svg"].sort());
   assert.ok((await stat(join(dist, "index.html"))).size > 0);
   const preview = await readFile(join(dist, SOCIAL_PREVIEW));
   assert.equal(preview.subarray(0, 3).toString("hex"), "ffd8ff");
@@ -90,15 +90,11 @@ test("the page keeps essential document and canvas semantics", () => {
 });
 
 test("the lab chrome is present and the time-of-day controls are accessible", () => {
-  /* The wordmark is the ks design.art mark as it ships on ks-design.art
-     (client decision, 2026-11-19), outlined into one SVG; its accessible
-     name is real text. The dot keeps the
-     ks·design cornflower pair. The study number is fixed at 03. */
-  assert.match(page, /<span class="tag"><strong><span class="visually-hidden">ks design\.art<\/span><svg class="brand-mark" aria-hidden="true" focusable="false" viewBox="0 -1066 9152 1366"><defs><linearGradient id="brand-dot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var\(--brand-dot-a\)"\/><stop offset="1" style="stop-color:var\(--brand-dot-b\)"\/><\/linearGradient><\/defs><path d="M[^"]+"\/><circle cx="6622" cy="-200" r="200" fill="url\(#brand-dot\)"\/><path transform="translate\(6940\.5 -643\.5\) rotate\(-5\) translate\(0 39\)" d="M[^"]+"\/><\/svg><\/strong><\/span>/);
-  assert.match(page, /--brand-dot-a: #818cf8;\s*--brand-dot-b: #22d3ee;/);
-  assert.match(page, /\.tag \{\s*font-size: 11px;\s*letter-spacing: 0\.22em;/);
-  assert.match(page, /\.tag strong \{ color: var\(--ink\); font-weight: 600;/);
-  assert.match(page, /\.brand-mark \{\s*display: inline-block;\s*width: 9\.152em;\s*height: 1\.366em;\s*font-size: 0\.78rem;\s*vertical-align: -0\.3em;\s*overflow: visible;\s*fill: currentColor;/);
+  assert.match(page, /class="brand-mark brand-light" src="\/ks-design-art-on-light\.svg" alt="ks-design\.art" width="121" height="20"/);
+  assert.match(page, /class="brand-mark brand-dark" src="\/ks-design-art-on-dark\.svg" alt="ks-design\.art" width="121" height="20"/);
+  assert.match(page, /body\[data-mood="midnight"\] \.brand-dark \{ display: block; \}/);
+  assert.match(page, /width: 121px; height: 20px; max-width: none;/);
+  assert.doesNotMatch(page, /\.brand-mark \{ font-size:/);
   /* The chrome stays on the system face — no webfont is declared or fetched. */
   assert.doesNotMatch(page, /@font-face|url\([^)]*(?:woff|ttf|otf)/);
   assert.match(page, /study 03 — fathom/);
