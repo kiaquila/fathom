@@ -10,8 +10,8 @@ test("logo exports retain the canonical KS hashes and one shared geometry", asyn
   for (const [name, expected] of Object.entries(manifest.variants)) {
     const svg = await readFile(new URL(`${manifest.assetDirectory}/${name}`, root), "utf8");
     assert.equal(createHash("sha256").update(svg).digest("hex"), expected.sha256, name);
-    assert.match(svg, /width="121" height="20" viewBox="0 -17 121 20"/);
-    assert.match(svg, />ks-design\.art<\/title>/);
+    assert.match(svg, /width="118" height="20" viewBox="0 -17 118 20"/);
+    assert.match(svg, />ks design\.art<\/title>/);
     assert.doesNotMatch(svg, /<(?:text|script|image|style)\b|font-family|currentColor/);
     shapes.push(svg.replace(`fill="${expected.ink}"`, 'fill="INK"'));
   }

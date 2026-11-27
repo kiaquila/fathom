@@ -22,6 +22,6 @@ test("the preview server serves both canonical logos as SVG images", { timeout: 
     const response = await fetch(`${origin}/ks-design-art-on-${variant}.svg`);
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("content-type"), "image/svg+xml");
-    assert.match(await response.text(), /<title[^>]*>ks-design\.art<\/title>/);
+    assert.match(await response.text(), /<title[^>]*>ks design\.art<\/title>/);
   }
 });

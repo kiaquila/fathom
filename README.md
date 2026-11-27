@@ -33,7 +33,7 @@ website/
 
 ## Shared logo assets
 
-The header uses the canonical outlined `ks-design.art` SVG from `kiaquila/ks`,
-at 121 × 20 CSS pixels on desktop and mobile. Both theme exports are copied
+The header uses the canonical outlined `ks design.art` SVG from `kiaquila/ks`,
+at 118 × 20 CSS pixels on desktop and mobile. Both theme exports are copied
 without edits; white ink is used on dark surfaces. The dot stays unchanged.
 See `docs/logo-assets.json` for source paths and SHA-256 hashes.

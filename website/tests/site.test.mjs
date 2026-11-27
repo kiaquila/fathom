@@ -90,15 +90,15 @@ test("the page keeps essential document and canvas semantics", () => {
 });
 
 test("the lab chrome is present and the time-of-day controls are accessible", () => {
-  assert.match(page, /class="brand-mark brand-light" src="\/ks-design-art-on-light\.svg" alt="ks-design\.art" width="121" height="20"/);
-  assert.match(page, /class="brand-mark brand-dark" src="\/ks-design-art-on-dark\.svg" alt="ks-design\.art" width="121" height="20"/);
+  assert.match(page, /class="brand-mark brand-light" src="\/ks-design-art-on-light\.svg" alt="ks design\.art" width="118" height="20"/);
+  assert.match(page, /class="brand-mark brand-dark" src="\/ks-design-art-on-dark\.svg" alt="ks design\.art" width="118" height="20"/);
   assert.match(page, /body\[data-mood="midnight"\] \.brand-dark \{ display: block; \}/);
-  assert.match(page, /width: 121px; height: 20px; max-width: none;/);
+  assert.match(page, /width: 118px; height: 20px; max-width: none;/);
   assert.doesNotMatch(page, /\.brand-mark \{ font-size:/);
   /* The chrome stays on the system face — no webfont is declared or fetched. */
   assert.doesNotMatch(page, /@font-face|url\([^)]*(?:woff|ttf|otf)/);
   assert.match(page, /study 03 — fathom/);
-  assert.match(page, /Designed by <a href="https:\/\/ks-design\.art" rel="author">ks-design\.art<\/a> · Built with AI workflows/);
+  assert.match(page, /Designed by <a href="https:\/\/ks-design\.art" rel="author">ks design\.art<\/a> · Built with AI workflows/);
   assert.match(page, /<div class="controls" role="group" aria-label="Time of day">/);
   for (const mood of ["auto", "day", "dusk", "midnight"]) {
     assert.match(page, new RegExp(`<button class="ctl" type="button" data-mood="${mood}" aria-pressed="(?:true|false)">${mood}</button>`));
