@@ -31,6 +31,7 @@ function configure(root) {
     command: ["node", "-e", "process.exit(0)"]
   }];
   config.performance.outputDirectory = "dist";
+  config.performance.criticalFiles = ["index.html"];
   writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
 }
 

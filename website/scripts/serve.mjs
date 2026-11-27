@@ -10,6 +10,7 @@ const port = Number(process.env.PORT ?? 4660);
 const types = {
   ".html": "text/html; charset=utf-8",
   ".jpg": "image/jpeg",
+  ".svg": "image/svg+xml",
   ".webp": "image/webp",
   ".txt": "text/plain; charset=utf-8"
 };
@@ -29,7 +30,7 @@ async function resolveFile(pathname) {
   }
 }
 
-createServer(async (request, response) => {
+const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://localhost");
   const file = await resolveFile(url.pathname);
   if (!file) {
@@ -42,5 +43,5 @@ createServer(async (request, response) => {
   });
   createReadStream(file).pipe(response);
 }).listen(port, () => {
-  console.log(`Fathom preview: http://localhost:${port}`);
+  console.log(`Fathom preview: http://localhost:${server.address().port}`);
 });

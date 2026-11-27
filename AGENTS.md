@@ -19,8 +19,8 @@ before changing the project.
 
 - Keep the artwork as one dependency-free page in `website/src/index.html`:
   inline CSS and JavaScript, system fonts, and no third-party or cross-origin
-  requests. The only runtime fetches are the fish pictures listed in the build
-  allowlist (`website/src/fish-0?.webp`), served from the same origin; the
+  requests. Runtime fetches include the two canonical KS logo SVGs and the fish
+  pictures listed in the build allowlist (`website/src/fish-0?.webp`), served from the same origin; the
   page must keep working when they fail to load.
 - The build publishes only explicitly allowlisted files. When an asset is
   added, update the build allowlist, shipped-output tests, and performance
