@@ -98,7 +98,7 @@ test("the lab chrome is present and the time-of-day controls are accessible", ()
   /* The chrome stays on the system face — no webfont is declared or fetched. */
   assert.doesNotMatch(page, /@font-face|url\([^)]*(?:woff|ttf|otf)/);
   assert.match(page, /study 03 — fathom/);
-  assert.match(page, /Designed by <a href="https:\/\/ks-design\.art" rel="author">ks design\.art<\/a> · Built with AI workflows/);
+  assert.match(page, /Designed by <a href="https:\/\/ks-design\.art" rel="author">ks-design\.art<\/a> · Built with AI workflows/);
   assert.match(page, /<div class="controls" role="group" aria-label="Time of day">/);
   for (const mood of ["auto", "day", "dusk", "midnight"]) {
     assert.match(page, new RegExp(`<button class="ctl" type="button" data-mood="${mood}" aria-pressed="(?:true|false)">${mood}</button>`));
